@@ -16,4 +16,5 @@ serde_json = { version = "1.0.96" }
 tokio = { version = "*", features = ["full"] }
 tokio-tungstenite = { version = "*", features = ["native-tls"] }
 
-miette = "5.7.0"
+thiserror = "1.0.40"
+miette = { version = "5.7.0", features = ["fancy"] }
