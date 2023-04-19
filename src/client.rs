@@ -18,6 +18,8 @@ pub struct Client {
     pub reconnect_url: Option<url::Url>,
 }
 
+type Connection = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
 impl Client {
     pub async fn new(channel: &str, oauth: &str) -> Result<Self> {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
@@ -42,16 +44,22 @@ impl Client {
             .map(|user| user.id)
     }
 
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn connect(&mut self) -> Result<Connection> {
         let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
 
-        let (mut socket, _) = tokio_tungstenite::connect_async_with_config(
+        let (socket, _) = tokio_tungstenite::connect_async_with_config(
             twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
             Some(config),
         )
         .await
         .into_diagnostic()
         .wrap_err("Cannot connect twitch event server host")?;
+
+        Ok(socket)
+    }
+
+    pub async fn run(&mut self) -> Result<()> {
+        let mut socket = self.connect().await?;
 
         while let Some(msg) = socket.next().await {
             println!("running loop");
@@ -93,14 +101,7 @@ impl Client {
                 Err(tokio_tungstenite::tungstenite::Error::Protocol(
                     tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
                 )) => {
-                    let (s, _) = tokio_tungstenite::connect_async_with_config(
-                            twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
-                            Some(config),
-                        )
-                        .await
-                        .into_diagnostic()
-                        .wrap_err("Cannot connect twitch event server host")?;
-                    socket = s;
+                    socket = self.connect().await?;
                 },
                 _ => (),
             }
