@@ -87,8 +87,14 @@ impl Client {
     async fn process_message(&mut self, msg: String) -> Result<()> {
         use EventsubWebsocketData::*;
         match Event::parse_websocket(msg.as_str()).into_diagnostic()? {
-            Welcome { payload: WelcomePayload{ session }, .. } |
-            Reconnect { payload: ReconnectPayload{ session }, .. } => {
+            Welcome {
+                payload: WelcomePayload { session },
+                ..
+            }
+            | Reconnect {
+                payload: ReconnectPayload { session },
+                ..
+            } => {
                 let user_id = self.get_user_id().await?;
 
                 self.session_id = Some(session.id.to_string());
@@ -102,13 +108,16 @@ impl Client {
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
-                self.client.req_post(req, body, &self.token).await.into_diagnostic()?;
+                self.client
+                    .req_post(req, body, &self.token)
+                    .await
+                    .into_diagnostic()?;
 
                 println!("Subscribed to raid event.");
-            },
+            }
             Notification { payload, .. } => {
-                print!("Raid has come ===> {:?}", payload);
-            },
+                println!("Raid has come: {:?}", payload);
+            }
             Revocation { .. } => (),
             Keepalive { .. } => (),
             _ => (),
