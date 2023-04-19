@@ -1,7 +1,7 @@
 mod client;
-use std::env;
 use client::Client;
-use miette::{Result, WrapErr, IntoDiagnostic};
+use miette::{IntoDiagnostic, Result, WrapErr};
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -9,11 +9,11 @@ async fn main() -> Result<()> {
         .into_diagnostic()
         .wrap_err("TWITCH_CHANNEL must be set.")?;
     // TODO: rename envvar name.
-    let oauth = env::var("TWITCH_OAUTH")
+    let token = env::var("TWITCH_OAUTH")
         .into_diagnostic()
         .wrap_err("TWITCH_OAUTH must be set.")?;
 
-    let mut wsclient = Client::new(channel.as_str(), oauth.as_str()).await?;
+    let mut wsclient = Client::new(&channel, &token).await?;
     wsclient.run().await?;
 
     Ok(())

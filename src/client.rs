@@ -1,11 +1,9 @@
 use futures::StreamExt;
 use twitch_api::{
-    types::UserId,
-    eventsub::{Event, EventsubWebsocketData, WelcomePayload, ReconnectPayload},
-    helix::{
-        HelixClient,
-    },
+    eventsub::{Event, EventsubWebsocketData, ReconnectPayload, WelcomePayload},
+    helix::HelixClient,
     twitch_oauth2::UserToken,
+    types::UserId,
 };
 
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
