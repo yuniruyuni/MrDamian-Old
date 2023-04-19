@@ -8,12 +8,12 @@ use twitch_api::{
     twitch_oauth2::UserToken,
 };
 
-use miette::{IntoDiagnostic, Result, WrapErr};
+use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 pub struct Client {
     pub client: HelixClient<'static, reqwest::Client>,
 
-    pub user_id: UserId,
+    pub channel: String,
     pub token: UserToken,
 
     pub session_id: Option<String>,
@@ -21,6 +21,29 @@ pub struct Client {
 }
 
 impl Client {
+    pub async fn new(channel: &str, oauth: &str) -> Result<Self> {
+        let client: HelixClient<reqwest::Client> = HelixClient::default();
+        let token = UserToken::from_existing(&client, oauth.into(), None, None)
+            .await
+            .into_diagnostic()?;
+        Ok(Self {
+            client,
+            channel: channel.to_string(),
+            token,
+            session_id: None,
+            reconnect_url: None,
+        })
+    }
+
+    pub async fn get_user_id(&mut self) -> Result<UserId> {
+        self.client
+            .get_user_from_login(&self.channel, &self.token)
+            .await
+            .into_diagnostic()?
+            .ok_or_else(|| miette!("No user found for channel {channel}."))
+            .map(|user| user.id)
+    }
+
     pub async fn run(&mut self) -> Result<()> {
         let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
 
@@ -30,7 +53,7 @@ impl Client {
         )
         .await
         .into_diagnostic()
-        .context("Cannot connect twitch event server host")?;
+        .wrap_err("Cannot connect twitch event server host")?;
 
         while let Some(msg) = socket.next().await {
             println!("running loop");
@@ -41,6 +64,8 @@ impl Client {
                     match Event::parse_websocket(t.as_str()).into_diagnostic()? {
                         Welcome { payload: WelcomePayload{ session }, .. } |
                         Reconnect { payload: ReconnectPayload{ session }, .. } => {
+                            let user_id = self.get_user_id().await?;
+
                             self.session_id = Some(session.id.to_string());
                             if let Some(url) = session.reconnect_url {
                                 self.reconnect_url = Some(url.parse().into_diagnostic()?);
@@ -48,7 +73,7 @@ impl Client {
 
                             let req = twitch_api::helix::eventsub::CreateEventSubSubscriptionRequest::default();
                             let body = twitch_api::helix::eventsub::CreateEventSubSubscriptionBody::new(
-                                twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(self.user_id.clone()),
+                                twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(user_id),
                                 twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                             );
 
@@ -76,7 +101,7 @@ impl Client {
                         )
                         .await
                         .into_diagnostic()
-                        .context("Cannot connect twitch event server host")?;
+                        .wrap_err("Cannot connect twitch event server host")?;
                     socket = s;
                 },
                 _ => (),
