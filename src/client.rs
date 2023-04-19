@@ -18,7 +18,8 @@ pub struct Client {
     pub reconnect_url: Option<url::Url>,
 }
 
-type Connection = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Connection =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 impl Client {
     pub async fn new(channel: &str, oauth: &str) -> Result<Self> {
@@ -42,20 +43,6 @@ impl Client {
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
             .map(|user| user.id)
-    }
-
-    pub async fn connect(&mut self) -> Result<Connection> {
-        let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
-
-        let (socket, _) = tokio_tungstenite::connect_async_with_config(
-            twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
-            Some(config),
-        )
-        .await
-        .into_diagnostic()
-        .wrap_err("Cannot connect twitch event server host")?;
-
-        Ok(socket)
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -108,5 +95,19 @@ impl Client {
         }
 
         Ok(())
+    }
+
+    async fn connect(&mut self) -> Result<Connection> {
+        let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
+
+        let (socket, _) = tokio_tungstenite::connect_async_with_config(
+            twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
+            Some(config),
+        )
+        .await
+        .into_diagnostic()
+        .wrap_err("Cannot connect twitch event server host")?;
+
+        Ok(socket)
     }
 }
