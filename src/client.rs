@@ -48,50 +48,23 @@ impl Client {
     pub async fn run(&mut self) -> Result<()> {
         let mut socket = self.connect().await?;
 
-        while let Some(msg) = socket.next().await {
+        while let Some(event) = socket.next().await {
             println!("running loop");
-            match msg {
-                Ok(tokio_tungstenite::tungstenite::Message::Text(t)) => {
-                    println!("Message: {}", &t);
-                    use EventsubWebsocketData::*;
-                    match Event::parse_websocket(t.as_str()).into_diagnostic()? {
-                        Welcome { payload: WelcomePayload{ session }, .. } |
-                        Reconnect { payload: ReconnectPayload{ session }, .. } => {
-                            let user_id = self.get_user_id().await?;
 
-                            self.session_id = Some(session.id.to_string());
-                            if let Some(url) = session.reconnect_url {
-                                self.reconnect_url = Some(url.parse().into_diagnostic()?);
-                            }
-
-                            let req = twitch_api::helix::eventsub::CreateEventSubSubscriptionRequest::default();
-                            let body = twitch_api::helix::eventsub::CreateEventSubSubscriptionBody::new(
-                                twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(user_id),
-                                twitch_api::eventsub::Transport::websocket(session.id.to_string()),
-                            );
-
-                            self.client.req_post(req, body, &self.token).await.into_diagnostic()?;
-
-                            println!("Subscribed to raid event.");
-                        },
-                        Notification { payload, .. } => {
-                            print!("Raid has come ===> {:?}", payload);
-                        },
-                        Revocation { .. } => (),
-                        Keepalive { .. } => (),
-                        _ => (),
-                    }
-                },
-                Err(tokio_tungstenite::tungstenite::Error::ConnectionClosed) => {
-                    println!("Connection closed")
-                },
-                Err(tokio_tungstenite::tungstenite::Error::Protocol(
-                    tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                )) => {
-                    socket = self.connect().await?;
-                },
-                _ => (),
-            }
+            match event {
+            Ok(tokio_tungstenite::tungstenite::Message::Text(msg)) => {
+                self.process_message(msg).await?;
+            },
+            err @ Err(tokio_tungstenite::tungstenite::Error::ConnectionClosed) => {
+                err.into_diagnostic().wrap_err("Twitch connection was closed.")?;
+            },
+            Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+            )) => {
+                socket = self.connect().await?;
+            },
+            _ => (),
+        }
         }
 
         Ok(())
@@ -109,5 +82,38 @@ impl Client {
         .wrap_err("Cannot connect twitch event server host")?;
 
         Ok(socket)
+    }
+
+    async fn process_message(&mut self, msg: String) -> Result<()> {
+        use EventsubWebsocketData::*;
+        match Event::parse_websocket(msg.as_str()).into_diagnostic()? {
+            Welcome { payload: WelcomePayload{ session }, .. } |
+            Reconnect { payload: ReconnectPayload{ session }, .. } => {
+                let user_id = self.get_user_id().await?;
+
+                self.session_id = Some(session.id.to_string());
+                if let Some(url) = session.reconnect_url {
+                    self.reconnect_url = Some(url.parse().into_diagnostic()?);
+                }
+
+                let req = twitch_api::helix::eventsub::CreateEventSubSubscriptionRequest::default();
+                let body = twitch_api::helix::eventsub::CreateEventSubSubscriptionBody::new(
+                    twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(user_id),
+                    twitch_api::eventsub::Transport::websocket(session.id.to_string()),
+                );
+
+                self.client.req_post(req, body, &self.token).await.into_diagnostic()?;
+
+                println!("Subscribed to raid event.");
+            },
+            Notification { payload, .. } => {
+                print!("Raid has come ===> {:?}", payload);
+            },
+            Revocation { .. } => (),
+            Keepalive { .. } => (),
+            _ => (),
+        }
+
+        Ok(())
     }
 }
