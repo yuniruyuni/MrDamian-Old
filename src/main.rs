@@ -5,6 +5,7 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let bot = "mrdamian_bot";
     let channel = env::var("TWITCH_CHANNEL")
         .into_diagnostic()
         .wrap_err("TWITCH_CHANNEL must be set.")?;
@@ -13,7 +14,7 @@ async fn main() -> Result<()> {
         .into_diagnostic()
         .wrap_err("TWITCH_OAUTH must be set.")?;
 
-    let mut wsclient = Client::new(&channel, &token).await?;
+    let mut wsclient = Client::new(bot, &channel, &token).await?;
     wsclient.run().await?;
 
     Ok(())

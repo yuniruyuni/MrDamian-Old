@@ -15,8 +15,13 @@ use miette::{miette, IntoDiagnostic, Result, WrapErr};
 pub struct Client {
     pub client: HelixClient<'static, reqwest::Client>,
 
-    pub channel: String,
+    pub channel: UserName,
+    pub channel_id: UserId,
+
     pub token: UserToken,
+
+    pub bot: UserName,
+    pub bot_id: UserId,
 
     pub session_id: Option<String>,
     pub reconnect_url: Option<url::Url>,
@@ -25,31 +30,47 @@ pub struct Client {
 type Connection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+struct SendShoutoutRequest {
+    from_broadcaster_id: UserId,
+    to_broadcaster_id: UserId,
+    moderator_id: UserId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+struct SendShoutoutResponse {}
+
+impl twitch_api::helix::Request for SendShoutoutRequest {
+    type Response = SendShoutoutResponse;
+
+    const PATH: &'static str = "chat/shoutouts";
+    const SCOPE: &'static [twitch_api::helix::Scope] = &[];
+}
+
+impl twitch_api::helix::RequestPost for SendShoutoutRequest {
+    type Body = twitch_api::helix::EmptyBody;
+}
+
 impl Client {
-    pub async fn new(channel: &str, oauth: &str) -> Result<Self> {
+    pub async fn new(bot: &str, channel: &str, oauth: &str) -> Result<Self> {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
         let token = UserToken::from_existing(&client, oauth.into(), None, None)
             .await
             .into_diagnostic()?;
+
         Ok(Self {
             client,
-            channel: channel.to_string(),
+            channel: channel.into(),
+            bot: bot.into(),
             token,
             session_id: None,
             reconnect_url: None,
+            channel_id: "".into(),
+            bot_id: "".into(),
         })
     }
 
-    pub async fn get_user_id(&mut self) -> Result<UserId> {
-        self.client
-            .get_user_from_login(&self.channel, &self.token)
-            .await
-            .into_diagnostic()?
-            .ok_or_else(|| miette!("No user found for channel {channel}."))
-            .map(|user| user.id)
-    }
-
-    pub async fn get_user_id_for(&mut self, name: &str) -> Result<UserId> {
+    pub async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
         self.client
             .get_user_from_login(name, &self.token)
             .await
@@ -58,31 +79,43 @@ impl Client {
             .map(|user| user.id)
     }
 
-    pub async fn get_user_login_name(&mut self, id: UserId) -> Result<UserName> {
+    pub async fn get_user_login_name(&mut self, id: &UserId) -> Result<UserName> {
         self.client
-            .get_user_from_id(&id, &self.token)
+            .get_user_from_id(id, &self.token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
             .map(|user| user.login)
     }
 
-    pub async fn send_announce(&mut self, message: &str) -> Result<()> {
-        let yuniruyuni = self.get_user_id_for("yuniruyuni").await?;
-        let mrdamian_bot = self.get_user_id_for("mrdamian_bot").await?;
+    pub async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
+        let req = SendShoutoutRequest {
+            from_broadcaster_id: self.channel_id.clone(),
+            to_broadcaster_id: to_broadcaster.clone(),
+            moderator_id: self.bot_id.clone(),
+        };
+        let res = self.client.req_post(req, Default::default(), &self.token).await.into_diagnostic();
+        match res {
+            Ok(_) => Ok(()),
+            // this call must be Err because of current twitch-rs implementation parse NoContent always error.
+            // But NoContent is this api correct response so we think this is not an error.
+            Err(_) => Ok(()),
+        }
+    }
 
+    async fn send_notification(&mut self, message: &str) -> Result<()> {
         self.client
             .send_chat_announcement(
-                yuniruyuni,
-                mrdamian_bot,
+                self.channel_id.as_str(),
+                self.bot_id.as_str(),
                 message,
                 AnnouncementColor::Primary,
                 &self.token,
             )
             .await
             .into_diagnostic()?;
-        Ok(())
-    }
+         Ok(())
+     }
 
     pub async fn run(&mut self) -> Result<()> {
         let mut socket = self.connect().await?;
@@ -91,19 +124,19 @@ impl Client {
             println!("running loop");
 
             match event {
-            Ok(tokio_tungstenite::tungstenite::Message::Text(msg)) => {
-                self.process_message(msg).await?;
-            },
-            err @ Err(tokio_tungstenite::tungstenite::Error::ConnectionClosed) => {
-                err.into_diagnostic().wrap_err("Twitch connection was closed.")?;
-            },
-            Err(tokio_tungstenite::tungstenite::Error::Protocol(
-                tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-            )) => {
-                socket = self.connect().await?;
-            },
-            _ => (),
-        }
+                Ok(tokio_tungstenite::tungstenite::Message::Text(msg)) => {
+                    self.process_message(msg).await?;
+                },
+                err @ Err(tokio_tungstenite::tungstenite::Error::ConnectionClosed) => {
+                    err.into_diagnostic().wrap_err("Twitch connection was closed.")?;
+                },
+                Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                    tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                )) => {
+                    socket = self.connect().await?;
+                },
+                _ => (),
+            }
         }
 
         Ok(())
@@ -134,7 +167,8 @@ impl Client {
                 payload: ReconnectPayload { session },
                 ..
             } => {
-                let user_id = self.get_user_id().await?;
+                self.channel_id = self.get_user_id_for(&self.channel.clone()).await?;
+                self.bot_id = self.get_user_id_for(&self.bot.clone()).await?;
 
                 self.session_id = Some(session.id.to_string());
                 if let Some(url) = session.reconnect_url {
@@ -143,7 +177,7 @@ impl Client {
 
                 let req = twitch_api::helix::eventsub::CreateEventSubSubscriptionRequest::default();
                 let body = twitch_api::helix::eventsub::CreateEventSubSubscriptionBody::new(
-                    twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(user_id),
+                    twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(self.channel_id.clone()),
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
@@ -178,27 +212,17 @@ impl Client {
             }) => {
                 // Actual raid message doesn't contain broadcaster_user_name so you need to obtain it from the helix API.
                 let name = self
-                    .get_user_login_name(msg.from_broadcaster_user_id.clone())
+                    .get_user_login_name(&msg.from_broadcaster_user_id)
                     .await?;
 
-                // TODO: msg.from_broadcaster_user_login
+                // TODO: Check what were they playing today and write it in the message.
 
-                // TODO: send shoutout for this raid.
-                println!(
-                    "{}さんから{}名のRAIDを頂きました！(by get_user api)",
-                    name, msg.viewers
-                );
                 let message = format!(
                     "{}さんから{}名のRAIDを頂きました！(by get_user api)",
                     name, msg.viewers
                 );
-                self.send_announce(&message).await?;
-                println!(
-                    "{}さんから{}名のRAIDを頂きました！(by message value)",
-                    msg.from_broadcaster_user_login, msg.viewers
-                );
-                println!("/shoutout {}", msg.from_broadcaster_user_login);
-                println!("!so {}", msg.from_broadcaster_user_login);
+                self.send_notification(message.as_str()).await?;
+                self.send_shoutout(&msg.from_broadcaster_user_id).await?;
                 Ok(())
             }
             _ => Ok(()),
