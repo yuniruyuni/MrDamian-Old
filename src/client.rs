@@ -4,6 +4,7 @@ use twitch_api::{
         Event, EventsubWebsocketData, Message, NotificationMetadata, Payload, ReconnectPayload,
         WelcomePayload,
     },
+    helix::chat::AnnouncementColor,
     helix::HelixClient,
     twitch_oauth2::UserToken,
     types::{UserId, UserName},
@@ -48,6 +49,15 @@ impl Client {
             .map(|user| user.id)
     }
 
+    pub async fn get_user_id_for(&mut self, name: &str) -> Result<UserId> {
+        self.client
+            .get_user_from_login(name, &self.token)
+            .await
+            .into_diagnostic()?
+            .ok_or_else(|| miette!("No user found for channel {channel}."))
+            .map(|user| user.id)
+    }
+
     pub async fn get_user_login_name(&mut self, id: UserId) -> Result<UserName> {
         self.client
             .get_user_from_id(&id, &self.token)
@@ -55,6 +65,23 @@ impl Client {
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
             .map(|user| user.login)
+    }
+
+    pub async fn send_announce(&mut self, message: &str) -> Result<()> {
+        let yuniruyuni = self.get_user_id_for("yuniruyuni").await?;
+        let mrdamian_bot = self.get_user_id_for("mrdamian_bot").await?;
+
+        self.client
+            .send_chat_announcement(
+                yuniruyuni,
+                mrdamian_bot,
+                message,
+                AnnouncementColor::Primary,
+                &self.token,
+            )
+            .await
+            .into_diagnostic()?;
+        Ok(())
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -161,6 +188,11 @@ impl Client {
                     "{}さんから{}名のRAIDを頂きました！(by get_user api)",
                     name, msg.viewers
                 );
+                let message = format!(
+                    "{}さんから{}名のRAIDを頂きました！(by get_user api)",
+                    name, msg.viewers
+                );
+                self.send_announce(&message).await?;
                 println!(
                     "{}さんから{}名のRAIDを頂きました！(by message value)",
                     msg.from_broadcaster_user_login, msg.viewers
