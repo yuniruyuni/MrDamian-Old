@@ -1,6 +1,9 @@
 use futures::StreamExt;
 use twitch_api::{
-    eventsub::{Event, EventsubWebsocketData, Message, Payload, ReconnectPayload, WelcomePayload},
+    eventsub::{
+        Event, EventsubWebsocketData, Message, NotificationMetadata, Payload, ReconnectPayload,
+        WelcomePayload,
+    },
     helix::HelixClient,
     twitch_oauth2::UserToken,
     types::{UserId, UserName},
@@ -52,15 +55,6 @@ impl Client {
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
             .map(|user| user.login)
-    }
-
-    pub async fn get_channel(&mut self, id: UserId) -> Result<UserName> {
-        self.client
-            .get_channel_from_id(&id, &self.token)
-            .await
-            .into_diagnostic()?
-            .ok_or_else(|| miette!("No user found for channel {channel}."))
-            .map(|channel| channel.broadcaster_login)
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -133,30 +127,9 @@ impl Client {
 
                 println!("Subscribed to raid event.");
             }
-            Notification { payload, .. } => {
-                println!("Raid has come: {:?}", payload);
-                match payload {
-                    Event::ChannelRaidV1(Payload {
-                        message: Message::Notification(msg),
-                        ..
-                    }) => {
-                        // Actual raid message doesn't contain broadcaster_user_name so you need to obtain it from the helix API.
-                        // let name = self
-                        //     .get_user_login_name(msg.from_broadcaster_user_id.clone())
-                        //     .await?;
-                        let channel = self
-                            .get_user_login_name(msg.from_broadcaster_user_id.clone())
-                            .await?;
-
-                        // TODO: msg.from_broadcaster_user_login
-
-                        // TODO: send shoutout for this raid.
-                        println!("{}さんから{}名のRAIDを頂きました！", channel, msg.viewers);
-                        println!("/shoutout {}", msg.from_broadcaster_user_login);
-                        println!("!so {}", msg.from_broadcaster_user_login);
-                    }
-                    _ => (),
-                }
+            Notification { metadata, payload } => {
+                println!("Notification has come: {:?}", payload);
+                self.process_notification(&metadata, &payload).await?;
             }
             Revocation { .. } => (),
             Keepalive { .. } => (),
@@ -164,5 +137,39 @@ impl Client {
         }
 
         Ok(())
+    }
+
+    async fn process_notification<'a>(
+        &mut self,
+        _metadata: &NotificationMetadata<'a>,
+        payload: &Event,
+    ) -> Result<()> {
+        match payload {
+            Event::ChannelRaidV1(Payload {
+                message: Message::Notification(msg),
+                ..
+            }) => {
+                // Actual raid message doesn't contain broadcaster_user_name so you need to obtain it from the helix API.
+                let name = self
+                    .get_user_login_name(msg.from_broadcaster_user_id.clone())
+                    .await?;
+
+                // TODO: msg.from_broadcaster_user_login
+
+                // TODO: send shoutout for this raid.
+                println!(
+                    "{}さんから{}名のRAIDを頂きました！(by get_user api)",
+                    name, msg.viewers
+                );
+                println!(
+                    "{}さんから{}名のRAIDを頂きました！(by message value)",
+                    msg.from_broadcaster_user_login, msg.viewers
+                );
+                println!("/shoutout {}", msg.from_broadcaster_user_login);
+                println!("!so {}", msg.from_broadcaster_user_login);
+                Ok(())
+            }
+            _ => Ok(()),
+        }
     }
 }
