@@ -5,16 +5,18 @@ use std::env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let bot = "mrdamian_bot";
+    let bot = env::var("TWITCH_BOT_USERNAME")
+        .into_diagnostic()
+        .wrap_err("TWITCH_BOT_USERNAME must be set.")?;
     let channel = env::var("TWITCH_CHANNEL")
         .into_diagnostic()
         .wrap_err("TWITCH_CHANNEL must be set.")?;
     // TODO: rename envvar name.
-    let token = env::var("TWITCH_OAUTH")
+    let token = env::var("TWITCH_OAUTH_TOKEN")
         .into_diagnostic()
-        .wrap_err("TWITCH_OAUTH must be set.")?;
+        .wrap_err("TWITCH_OAUTH_TOKEN must be set.")?;
 
-    let mut wsclient = Client::new(bot, &channel, &token).await?;
+    let mut wsclient = Client::new(&bot, &channel, &token).await?;
     wsclient.run().await?;
 
     Ok(())
