@@ -79,15 +79,6 @@ impl Client {
             .map(|user| user.id)
     }
 
-    pub async fn get_user_login_name(&mut self, id: &UserId) -> Result<UserName> {
-        self.client
-            .get_user_from_id(id, &self.token)
-            .await
-            .into_diagnostic()?
-            .ok_or_else(|| miette!("No user found for channel {channel}."))
-            .map(|user| user.login)
-    }
-
     pub async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
         let req = SendShoutoutRequest {
             from_broadcaster_id: self.channel_id.clone(),
@@ -121,8 +112,6 @@ impl Client {
         let mut socket = self.connect().await?;
 
         while let Some(event) = socket.next().await {
-            println!("running loop");
-
             match event {
                 Ok(tokio_tungstenite::tungstenite::Message::Text(msg)) => {
                     self.process_message(msg).await?;
@@ -185,11 +174,8 @@ impl Client {
                     .req_post(req, body, &self.token)
                     .await
                     .into_diagnostic()?;
-
-                println!("Subscribed to raid event.");
             }
             Notification { metadata, payload } => {
-                println!("Notification has come: {:?}", payload);
                 self.process_notification(&metadata, &payload).await?;
             }
             Revocation { .. } => (),
@@ -210,18 +196,25 @@ impl Client {
                 message: Message::Notification(msg),
                 ..
             }) => {
-                // Actual raid message doesn't contain broadcaster_user_name so you need to obtain it from the helix API.
-                let name = self
-                    .get_user_login_name(&msg.from_broadcaster_user_id)
-                    .await?;
+                let flogin = msg.from_broadcaster_user_login.clone();
 
-                // TODO: Check what were they playing today and write it in the message.
+                let user = self.client
+                    .get_user_from_id(&msg.from_broadcaster_user_id, &self.token)
+                    .await
+                    .into_diagnostic()?
+                    .ok_or_else(|| miette!("No user found for channel {}.", flogin))?;
+
+                let channel = self.client
+                    .get_channel_from_id(&msg.from_broadcaster_user_id, &self.token)
+                    .await
+                    .into_diagnostic()?
+                    .ok_or_else(|| miette!("No channel info found for the user {}.", flogin))?;
 
                 let message = format!(
-                    "{}さんから{}名のRAIDを頂きました！(by get_user api)",
-                    name, msg.viewers
+                    "{}さんから{}名のRAIDを頂きました！今日は「{}」を遊んでいたみたい",
+                    user.login, msg.viewers, channel.game_name,
                 );
-                self.send_notification(message.as_str()).await?;
+                self.send_notification(&message).await?;
                 self.send_shoutout(&msg.from_broadcaster_user_id).await?;
                 Ok(())
             }
