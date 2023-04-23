@@ -85,7 +85,11 @@ impl Client {
             to_broadcaster_id: to_broadcaster.clone(),
             moderator_id: self.bot_id.clone(),
         };
-        let res = self.client.req_post(req, Default::default(), &self.token).await.into_diagnostic();
+        let res = self
+            .client
+            .req_post(req, Default::default(), &self.token)
+            .await
+            .into_diagnostic();
         match res {
             Ok(_) => Ok(()),
             // this call must be Err because of current twitch-rs implementation parse NoContent always error.
@@ -105,8 +109,8 @@ impl Client {
             )
             .await
             .into_diagnostic()?;
-         Ok(())
-     }
+        Ok(())
+    }
 
     pub async fn run(&mut self) -> Result<()> {
         let mut socket = self.connect().await?;
@@ -166,7 +170,9 @@ impl Client {
 
                 let req = twitch_api::helix::eventsub::CreateEventSubSubscriptionRequest::default();
                 let body = twitch_api::helix::eventsub::CreateEventSubSubscriptionBody::new(
-                    twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(self.channel_id.clone()),
+                    twitch_api::eventsub::channel::ChannelRaidV1::to_broadcaster_user_id(
+                        self.channel_id.clone(),
+                    ),
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
@@ -198,13 +204,15 @@ impl Client {
             }) => {
                 let flogin = msg.from_broadcaster_user_login.clone();
 
-                let user = self.client
+                let user = self
+                    .client
                     .get_user_from_id(&msg.from_broadcaster_user_id, &self.token)
                     .await
                     .into_diagnostic()?
                     .ok_or_else(|| miette!("No user found for channel {}.", flogin))?;
 
-                let channel = self.client
+                let channel = self
+                    .client
                     .get_channel_from_id(&msg.from_broadcaster_user_id, &self.token)
                     .await
                     .into_diagnostic()?
