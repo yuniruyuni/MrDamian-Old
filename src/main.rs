@@ -1,11 +1,8 @@
 mod client;
-mod speach;
 
 use client::Client;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::env;
-
-use std::sync::mpsc::channel;
 
 struct Config {
     bot: String,
@@ -42,15 +39,8 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    let (sender, receiver) = channel();
-
-    let audio_thread = tokio::spawn(async { speach::run(sender).await });
-    let translate_thread = tokio::spawn(async { speach::audio_translate("./models/ggml-base.bin", receiver).await });
-
     tokio::try_join!(
         flatten(websocket_thread),
-        flatten(audio_thread),
-        flatten(translate_thread),
     )?;
 
     Ok(())
