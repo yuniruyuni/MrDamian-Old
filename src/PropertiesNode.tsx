@@ -1,16 +1,6 @@
 import { Handle, Position } from 'reactflow';
 
-export const PropertiesNode: React.FC<{}> = ({}) => (
-  <div style={{
-    background: '#000',
-    border: '1px solid #000',
-    minWidth: '300px',
-    display: 'grid',
-    gridTemplateRows: '30px auto',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1px',
-    borderRadius: '5px',
-  }}>
+const Title: React.FC<{}> = ({}) => (
     <div style={{
       background: '#fff',
       gridRow: '1 / 2',
@@ -21,6 +11,9 @@ export const PropertiesNode: React.FC<{}> = ({}) => (
     }}>
       Twitch
     </div>
+);
+
+const InputPorts: React.FC<{}> = ({}) => (
     <div style={{
       background: '#fff',
       gridRow: '2 / 3',
@@ -37,6 +30,9 @@ export const PropertiesNode: React.FC<{}> = ({}) => (
         trigger
       </p>
     </div>
+);
+
+const OutputPorts: React.FC<{}> = ({}) => (
     <div style={{
       background: '#fff',
       gridRow: '2 / 3',
@@ -67,5 +63,21 @@ export const PropertiesNode: React.FC<{}> = ({}) => (
           id="out-b" />
       </p>
     </div>
+);
+
+export const PropertiesNode: React.FC<{}> = ({}) => (
+  <div style={{
+    background: '#000',
+    border: '1px solid #000',
+    minWidth: '300px',
+    display: 'grid',
+    gridTemplateRows: '30px auto',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '1px',
+    borderRadius: '5px',
+  }}>
+    <Title />
+    <InputPorts />
+    <OutputPorts />
   </div>
 );
