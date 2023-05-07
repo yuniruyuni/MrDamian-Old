@@ -4,8 +4,8 @@ use twitch_api::{
         Event, EventsubWebsocketData, Message, NotificationMetadata, Payload, ReconnectPayload,
         WelcomePayload,
     },
-    helix::{chat::AnnouncementColor, self},
     helix::HelixClient,
+    helix::{self, chat::AnnouncementColor},
     twitch_oauth2::UserToken,
     types::{UserId, UserName},
 };
@@ -65,8 +65,7 @@ impl Client {
             self.bot_id.clone(),
         );
 
-        self
-            .client
+        self.client
             .req_post(req, Default::default(), &self.token)
             .await
             .into_diagnostic()?;

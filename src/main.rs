@@ -39,9 +39,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    tokio::try_join!(
-        flatten(websocket_thread),
-    )?;
+    tokio::try_join!(flatten(websocket_thread),)?;
 
     Ok(())
 }
