@@ -1,7 +1,17 @@
+import type { NodeProps } from 'reactflow';
+
 import { Handle, Position } from 'reactflow';
 import { css } from '@acab/ecsstatic';
 
-const TitleCSS = css`
+type Input = {
+  name: string,
+};
+
+type Output = {
+  name: string,
+};
+
+const LabelCSS = css`
   background: #fff;
   grid-row: 1 / 2;
   grid-column: 1 / 3;
@@ -10,9 +20,9 @@ const TitleCSS = css`
   border-radius: 5px 5px 0 0;
 `;
 
-const Title: React.FC<{}> = ({}) => (
-  <div className={TitleCSS}>
-    Twitch
+const Label: React.FC<{label: string}> = ({ label }) => (
+  <div className={LabelCSS}>
+    {label}
   </div>
 );
 
@@ -30,12 +40,17 @@ const PortCSS = css`
   position: relative;
 `;
 
-const InputPorts: React.FC<{}> = ({}) => (
+
+const InputPort: React.FC<Input> = ({name}) => (
+  <p>
+    <Handle type="target" position={Position.Left} id="in-a" className={PortCSS} />
+    {name}
+  </p>
+)
+
+const InputPorts: React.FC<{inputs: Input[]}> = ({inputs}) => (
   <div className={InputPortsCSS}>
-    <p>
-      <Handle type="target" position={Position.Left} id="in-a" className={PortCSS} />
-      trigger
-    </p>
+    {inputs.map(input => (<InputPort {...input} />))}
   </div>
 );
 
@@ -48,16 +63,16 @@ const OutputPortsCSS = css`
   border-radius: 0 0 5px 0;
 `;
 
-const OutputPorts: React.FC<{}> = ({}) => (
+const OutputPort: React.FC<Output> = ({name}) => (
+  <p>
+    {name}
+    <Handle className={PortCSS} type="source" position={Position.Right} id="out-a" />
+  </p>
+);
+
+const OutputPorts: React.FC<{outputs: Output[]}> = ({outputs}) => (
   <div className={OutputPortsCSS}>
-    <p>
-      channel
-      <Handle className={PortCSS} type="source" position={Position.Right} id="out-a" />
-    </p>
-    <p>
-      latest game
-      <Handle className={PortCSS} type="source" position={Position.Right} id="out-b" />
-    </p>
+    {outputs.map(output => (<OutputPort {...output} />))}
   </div>
 );
 
@@ -72,10 +87,14 @@ const PropertiesNodeCSS = css`
   border-radius: 5px;
 `;
 
-export const PropertiesNode: React.FC<{}> = ({}) => (
+export const PropertiesNode: React.FC<NodeProps<{
+  label: string,
+  inputs: Input[],
+  outputs: Output[],
+}>> = ({ data: { label, inputs, outputs } }) => (
   <div className={PropertiesNodeCSS}>
-    <Title />
-    <InputPorts />
-    <OutputPorts />
+    <Label label={label} />
+    <InputPorts inputs={inputs} />
+    <OutputPorts outputs={outputs} />
   </div>
 );

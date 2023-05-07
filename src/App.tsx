@@ -21,7 +21,16 @@ const initialEdges = [
 const initialNodes = [
   { id: '1', data: { label: '1' }, position: { x: 0, y: 0 } },
   { id: '2', data: { label: '2' }, position: { x: 0, y: 100 } },
-  { id: '3', data: { label: '3' }, position: { x: 0, y: 200 }, type: 'propertiesNode' },
+  {
+    id: '3',
+    data: {
+      label: 'yuniruyuni',
+      inputs: [{name: 'prop-a'}, {name: 'prop-b'}],
+      outputs: [{name: 'prop-c'}],
+    },
+    position: { x: 0, y: 200 },
+    type: 'propertiesNode'
+  },
 ];
 
 function App() {
