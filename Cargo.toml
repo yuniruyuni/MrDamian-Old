@@ -8,16 +8,16 @@ edition = "2021"
 [dependencies]
 dotenv = "*"
 
-twitch_api = { version = "0.7.0-rc.4",features = [ "twitch_oauth2", "client", "helix", "tmi", "eventsub", "pubsub", "hmac", "reqwest", "unsupported" ] }
+twitch_api = { version = "0.7.0-rc.6",features = [ "twitch_oauth2", "client", "helix", "tmi", "eventsub", "pubsub", "hmac", "reqwest", "unsupported" ] }
 
-reqwest = { version = "0.11.16", features = ["json"] }
-serde = { version = "1.0.160", features = ["derive"] }
+reqwest = { version = "0.11.17", features = ["json"] }
+serde = { version = "1.0.162", features = ["derive"] }
 serde_json = { version = "1.0.96" }
 
 tokio = { version = "*", features = ["full"] }
 tokio-tungstenite = { version = "*", features = ["native-tls"] }
 
 thiserror = "1.0.40"
-miette = { version = "5.7.0", features = ["fancy"] }
+miette = { version = "5.8.0", features = ["fancy"] }
 url = "2.3.1"
 futures = "0.3.28"
