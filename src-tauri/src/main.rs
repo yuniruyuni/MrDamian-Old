@@ -1,3 +1,6 @@
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod client;
 
 use client::Client;
@@ -30,19 +33,31 @@ impl Config {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let websocket_thread = tokio::spawn(async move {
-        let config = Config::load_envs()?;
-        let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
-        wsclient.run().await?;
-        Ok(())
-    });
-
-    tokio::try_join!(flatten(websocket_thread),)?;
-
-    Ok(())
+// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
 }
+
+fn main() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+// async fn run_pipelines() -> Result<()> {
+//     let websocket_thread = tokio::spawn(async move {
+//         let config = Config::load_envs()?;
+//         let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
+//         wsclient.run().await?;
+//         Ok(())
+//     });
+// 
+//     tokio::try_join!(
+//         flatten(websocket_thread),
+//     )?;
+// }
 
 async fn flatten(h: tokio::task::JoinHandle<Result<()>>) -> Result<()> {
     match h.await {
