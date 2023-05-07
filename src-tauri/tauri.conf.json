@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "mrdamian",
-    "version": "0.0.0"
+    "version": "0.1.0"
   },
   "tauri": {
     "allowlist": {
@@ -27,7 +27,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "mrdamian.yuniruyuni.dev",
       "targets": "all"
     },
     "security": {
