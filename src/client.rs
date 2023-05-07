@@ -114,25 +114,26 @@ impl Client {
 
     pub async fn run(&mut self) -> Result<()> {
         let mut socket = self.connect().await?;
-
-        while let Some(event) = socket.next().await {
-            match event {
-                Ok(tokio_tungstenite::tungstenite::Message::Text(msg)) => {
-                    self.process_message(msg).await?;
+        loop {
+            use tokio_tungstenite::tungstenite::*;
+            match socket.next().await {
+                Some(Ok(Message::Text(msg))) => {
+                    if let Err(err) = self.process_message(msg).await {
+                        eprintln!("message process error: {}", err);
+                    }
                 },
-                err @ Err(tokio_tungstenite::tungstenite::Error::ConnectionClosed) => {
+                Some(err @ Err(Error::ConnectionClosed)) => {
+                    // but if twitch says you should close connection, we want to along with that.
                     err.into_diagnostic().wrap_err("Twitch connection was closed.")?;
                 },
-                Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                None | Some(Err(tokio_tungstenite::tungstenite::Error::Protocol(
                     tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                )) => {
+                ))) => {
                     socket = self.connect().await?;
                 },
                 _ => (),
             }
         }
-
-        Ok(())
     }
 
     async fn connect(&mut self) -> Result<Connection> {
