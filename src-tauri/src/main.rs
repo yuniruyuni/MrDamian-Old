@@ -7,6 +7,11 @@ use client::Client;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::env;
 
+use tauri::{
+    async_runtime, generate_context, generate_handler, Builder, CustomMenuItem, SystemTray,
+    SystemTrayMenu, SystemTrayMenuItem, SystemTrayEvent, Manager
+};
+
 struct Config {
     bot: String,
     channel: String,
@@ -39,19 +44,51 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-
 fn main() -> Result<()> {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet])
+    let hide = CustomMenuItem::new("hide".to_string(), "Hide");
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let tray_menu = SystemTrayMenu::new()
+        .add_item(hide)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(quit);
+    let system_tray = SystemTray::new().with_menu(tray_menu);
+    Builder::default()
+        .invoke_handler(generate_handler![greet])
+        .system_tray(system_tray)
+        .on_system_tray_event(|app, event| match event {
+            SystemTrayEvent::DoubleClick { .. } => {
+                let window = app.get_window("main").unwrap();
+                if window.is_visible().unwrap_or(false) {
+                    window.hide().unwrap();
+                } else {
+                    window.show().unwrap();
+                }
+            },
+            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+                "quit" => {
+                    std::process::exit(0);
+                }
+                "hide" => {
+                    let window = app.get_window("main").unwrap();
+                    if window.is_visible().unwrap_or(false) {
+                        window.hide().unwrap();
+                    } else {
+                        window.show().unwrap();
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        })
         .setup(|_app| {
-            tauri::async_runtime::spawn(async move {
+            async_runtime::spawn(async move {
                 let config = Config::load_envs()?;
                 let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
                 wsclient.run().await
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .run(generate_context!())
         .into_diagnostic()
         .context("error while running tauri application")?;
     Ok(())
