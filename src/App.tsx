@@ -1,51 +1,123 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/tauri";
-import "./App.css";
+import { useCallback, useMemo } from "react";
+// import { invoke } from "@tauri-apps/api/tauri";
+
+import ReactFlow, {
+  MiniMap,
+  Controls,
+  Background,
+  Handle,
+  Position,
+  useNodesState,
+  useEdgesState,
+  addEdge
+} from 'reactflow';
+
+import 'reactflow/dist/style.css';
+
+const PropertiesNode: React.FC<{}> = ({}) => (
+  <div style={{
+    background: '#000',
+    border: '1px solid #000',
+    minWidth: '300px',
+    display: 'grid',
+    gridTemplateRows: '30px auto',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '1px',
+    borderRadius: '5px',
+  }}>
+    <div style={{
+      background: '#fff',
+      gridRow: '1 / 2',
+      gridColumn: '1 / 3',
+      textAlign: 'left',
+      verticalAlign: 'baseline',
+      borderRadius: '5px 5px 0 0',
+    }}>
+      Twitch
+    </div>
+    <div style={{
+      background: '#fff',
+      gridRow: '2 / 3',
+      gridColumn: '1 / 2',
+      textAlign: 'left',
+      verticalAlign: 'baseline',
+      borderRadius: '0 0 0 5px',
+    }}>
+      <p>
+        <Handle type="target" position={Position.Left} id="in-a" style={{
+          display: 'inline-block',
+          position: 'relative',
+        }} />
+        trigger
+      </p>
+    </div>
+    <div style={{
+      background: '#fff',
+      gridRow: '2 / 3',
+      gridColumn: '2 / 3',
+      textAlign: 'right',
+      verticalAlign: 'baseline',
+      borderRadius: '0 0 5px 0',
+    }}>
+      <p>
+        channel
+        <Handle
+          style={{
+            display: 'inline-block',
+            position: 'relative',
+          }}
+          type="source"
+          position={Position.Right}
+          id="out-a" />
+      </p>
+      <p>
+          latest game
+          <Handle style={{
+            display: 'inline-block',
+            position: 'relative',
+          }}
+          type="source"
+          position={Position.Right}
+          id="out-b" />
+      </p>
+    </div>
+  </div>
+);
+
+const initialEdges = [
+  {id: 'e1-2', source: '1', target: '2'},
+];
+
+const initialNodes = [
+  { id: '1', data: { label: '1' }, position: { x: 0, y: 0 } },
+  { id: '2', data: { label: '2' }, position: { x: 0, y: 100 } },
+  { id: '3', data: { label: '3' }, position: { x: 0, y: 200 }, type: 'propertiesNode' },
+];
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const nodeTypes = useMemo(() => ({ propertiesNode: PropertiesNode, }), []);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const onConnect = useCallback(
+    (params: any) => setEdges((edge) => addEdge(params, edge)),
+    [setEdges],
+  );
 
   return (
     <div className="container">
-      <h1>Welcome to Tauri!</h1>
-
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <div className="row">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            greet();
-          }}
-        >
-          <input
-            id="greet-input"
-            onChange={(e) => setName(e.currentTarget.value)}
-            placeholder="Enter a name..."
-          />
-          <button type="submit">Greet</button>
-        </form>
-      </div>
-      <p>{greetMsg}</p>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+      >
+        <MiniMap />
+        <Controls />
+        <Background />
+      </ReactFlow>
     </div>
   );
 }
