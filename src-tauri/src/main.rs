@@ -39,30 +39,20 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-fn main() {
+
+fn main() -> Result<()> {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![greet])
+        .setup(|_app| {
+            tauri::async_runtime::spawn(async move {
+                let config = Config::load_envs()?;
+                let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
+                wsclient.run().await
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-
-// async fn run_pipelines() -> Result<()> {
-//     let websocket_thread = tokio::spawn(async move {
-//         let config = Config::load_envs()?;
-//         let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
-//         wsclient.run().await?;
-//         Ok(())
-//     });
-// 
-//     tokio::try_join!(
-//         flatten(websocket_thread),
-//     )?;
-// }
-
-async fn flatten(h: tokio::task::JoinHandle<Result<()>>) -> Result<()> {
-    match h.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => Err(e),
-        Err(e) => Err(e).into_diagnostic(),
-    }
+        .into_diagnostic()
+        .context("error while running tauri application")?;
+    Ok(())
 }
