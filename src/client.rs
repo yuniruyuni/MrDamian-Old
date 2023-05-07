@@ -4,7 +4,7 @@ use twitch_api::{
         Event, EventsubWebsocketData, Message, NotificationMetadata, Payload, ReconnectPayload,
         WelcomePayload,
     },
-    helix::chat::AnnouncementColor,
+    helix::{chat::AnnouncementColor, self},
     helix::HelixClient,
     twitch_oauth2::UserToken,
     types::{UserId, UserName},
@@ -29,27 +29,6 @@ pub struct Client {
 
 type Connection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-struct SendShoutoutRequest {
-    from_broadcaster_id: UserId,
-    to_broadcaster_id: UserId,
-    moderator_id: UserId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
-struct SendShoutoutResponse {}
-
-impl twitch_api::helix::Request for SendShoutoutRequest {
-    type Response = SendShoutoutResponse;
-
-    const PATH: &'static str = "chat/shoutouts";
-    const SCOPE: &'static [twitch_api::helix::Scope] = &[];
-}
-
-impl twitch_api::helix::RequestPost for SendShoutoutRequest {
-    type Body = twitch_api::helix::EmptyBody;
-}
 
 impl Client {
     pub async fn new(bot: &str, channel: &str, oauth: &str) -> Result<Self> {
@@ -80,22 +59,18 @@ impl Client {
     }
 
     pub async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
-        let req = SendShoutoutRequest {
-            from_broadcaster_id: self.channel_id.clone(),
-            to_broadcaster_id: to_broadcaster.clone(),
-            moderator_id: self.bot_id.clone(),
-        };
-        let res = self
+        let req = helix::chat::SendAShoutoutRequest::new(
+            self.channel_id.clone(),
+            to_broadcaster.clone(),
+            self.bot_id.clone(),
+        );
+
+        self
             .client
             .req_post(req, Default::default(), &self.token)
             .await
-            .into_diagnostic();
-        match res {
-            Ok(_) => Ok(()),
-            // this call must be Err because of current twitch-rs implementation parse NoContent always error.
-            // But NoContent is this api correct response so we think this is not an error.
-            Err(_) => Ok(()),
-        }
+            .into_diagnostic()?;
+        Ok(())
     }
 
     async fn send_notification(&mut self, message: &str) -> Result<()> {
