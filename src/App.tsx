@@ -19,8 +19,26 @@ const initialEdges = [
 ];
 
 const initialNodes = [
-  { id: '1', data: { label: '1' }, position: { x: 0, y: 0 } },
-  { id: '2', data: { label: '2' }, position: { x: 0, y: 100 } },
+  {
+    id: '1',
+    data: {
+      label: 'araara',
+      inputs: [{name: 'ara-a'}],
+      outputs: [{name: 'ara-b'}],
+    },
+    position: { x: 50, y: 0 },
+    type: 'propertiesNode'
+  },
+  {
+    id: '2',
+    data: {
+      label: 'nipanipa',
+      inputs: [{name: 'nipa-a'}],
+      outputs: [{name: 'nipa-b'}, {name: 'nipa-c'}],
+    },
+    position: { x: 50, y: 100 },
+    type: 'propertiesNode'
+  },
   {
     id: '3',
     data: {
@@ -28,7 +46,7 @@ const initialNodes = [
       inputs: [{name: 'prop-a'}, {name: 'prop-b'}],
       outputs: [{name: 'prop-c'}],
     },
-    position: { x: 0, y: 200 },
+    position: { x: 50, y: 200 },
     type: 'propertiesNode'
   },
 ];

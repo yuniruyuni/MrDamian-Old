@@ -20,12 +20,6 @@ const LabelCSS = css`
   border-radius: 5px 5px 0 0;
 `;
 
-const Label: React.FC<{label: string}> = ({ label }) => (
-  <div className={LabelCSS}>
-    {label}
-  </div>
-);
-
 const InputPortsCSS = css`
   background: #fff;
   grid-row: 2 / 3;
@@ -41,12 +35,18 @@ const PortCSS = css`
 `;
 
 
+const Label: React.FC<{label: string}> = ({ label }) => (
+  <div className={LabelCSS}>
+    {label}
+  </div>
+);
+
 const InputPort: React.FC<Input> = ({name}) => (
   <p>
     <Handle type="target" position={Position.Left} id="in-a" className={PortCSS} />
     {name}
   </p>
-)
+);
 
 const InputPorts: React.FC<{inputs: Input[]}> = ({inputs}) => (
   <div className={InputPortsCSS}>
