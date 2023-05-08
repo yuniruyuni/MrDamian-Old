@@ -1,42 +1,19 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod client;
+mod config;
 mod error;
+mod pipeline;
 mod tray;
+mod twitch;
 
-use client::Client;
-use std::env;
+use std::sync::mpsc::channel;
 
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
 
-struct Config {
-    bot: String,
-    channel: String,
-    token: String,
-}
-
-impl Config {
-    fn load_envs() -> Result<Self> {
-        let bot = env::var("TWITCH_BOT_USERNAME")
-            .into_diagnostic()
-            .wrap_err("TWITCH_BOT_USERNAME must be set.")?;
-        let channel = env::var("TWITCH_CHANNEL")
-            .into_diagnostic()
-            .wrap_err("TWITCH_CHANNEL must be set.")?;
-        let token = env::var("TWITCH_OAUTH_TOKEN")
-            .into_diagnostic()
-            .wrap_err("TWITCH_OAUTH_TOKEN must be set.")?;
-
-        Ok(Self {
-            bot,
-            channel,
-            token,
-        })
-    }
-}
+use crate::twitch::{Publisher, Subscriber};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -47,10 +24,23 @@ fn greet(name: &str) -> String {
 fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
+    let (sender, receiver) = channel::<pipeline::Message>();
     async_runtime::spawn(async move {
-        let config = Config::load_envs()?;
-        let mut wsclient = Client::new(&config.bot, &config.channel, &config.token).await?;
-        wsclient.run().await
+        let config = config::Config::load_envs()?;
+        let mut subscriber =
+            Subscriber::new(sender, &config.bot, &config.channel, &config.token).await?;
+        let res = subscriber.run().await;
+        eprintln!("Subscriber exited with {:?}", res);
+        res
+    });
+
+    async_runtime::spawn(async move {
+        let config = config::Config::load_envs()?;
+        let mut publisher =
+            Publisher::new(receiver, &config.bot, &config.channel, &config.token).await?;
+        let res = publisher.run().await;
+        eprintln!("Publisher exited with {:?}", res);
+        res
     });
 
     Builder::default()

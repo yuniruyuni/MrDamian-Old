@@ -1,37 +1,46 @@
 use futures::StreamExt;
 use twitch_api::{
     eventsub::{
-        Event, EventsubWebsocketData, Message, NotificationMetadata, Payload, ReconnectPayload,
-        WelcomePayload,
+        Event, EventsubWebsocketData, Message as TwitchMessage, NotificationMetadata, Payload,
+        ReconnectPayload, WelcomePayload,
     },
     helix::HelixClient,
-    helix::{self, chat::AnnouncementColor},
     twitch_oauth2::UserToken,
     types::{UserId, UserName},
 };
 
+use std::sync::mpsc::Sender;
+
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-pub struct Client {
+use crate::pipeline::{Message, Property};
+
+pub struct Subscriber {
     pub client: HelixClient<'static, reqwest::Client>,
+    pub token: UserToken,
 
     pub channel: UserName,
     pub channel_id: UserId,
-
-    pub token: UserToken,
 
     pub bot: UserName,
     pub bot_id: UserId,
 
     pub session_id: Option<String>,
     pub reconnect_url: Option<url::Url>,
+
+    pub sender: Sender<Message>,
 }
 
 type Connection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-impl Client {
-    pub async fn new(bot: &str, channel: &str, oauth: &str) -> Result<Self> {
+impl Subscriber {
+    pub async fn new(
+        sender: Sender<Message>,
+        bot: &str,
+        channel: &str,
+        oauth: &str,
+    ) -> Result<Self> {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
         let token = UserToken::from_existing(&client, oauth.into(), None, None)
             .await
@@ -46,6 +55,7 @@ impl Client {
             reconnect_url: None,
             channel_id: "".into(),
             bot_id: "".into(),
+            sender,
         })
     }
 
@@ -58,40 +68,12 @@ impl Client {
             .map(|user| user.id)
     }
 
-    pub async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
-        let req = helix::chat::SendAShoutoutRequest::new(
-            self.channel_id.clone(),
-            to_broadcaster.clone(),
-            self.bot_id.clone(),
-        );
-
-        self.client
-            .req_post(req, Default::default(), &self.token)
-            .await
-            .into_diagnostic()?;
-        Ok(())
-    }
-
-    async fn send_notification(&mut self, message: &str) -> Result<()> {
-        self.client
-            .send_chat_announcement(
-                self.channel_id.as_str(),
-                self.bot_id.as_str(),
-                message,
-                AnnouncementColor::Primary,
-                &self.token,
-            )
-            .await
-            .into_diagnostic()?;
-        Ok(())
-    }
-
     pub async fn run(&mut self) -> Result<()> {
         let mut socket = self.connect().await?;
         loop {
             use tokio_tungstenite::tungstenite::*;
             match socket.next().await {
-                Some(Ok(Message::Text(msg))) => {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(msg))) => {
                     if let Err(err) = self.process_message(msg).await {
                         eprintln!("message process error: {}", err);
                     }
@@ -174,31 +156,37 @@ impl Client {
     ) -> Result<()> {
         match payload {
             Event::ChannelRaidV1(Payload {
-                message: Message::Notification(msg),
+                message: TwitchMessage::Notification(msg),
                 ..
             }) => {
-                let flogin = msg.from_broadcaster_user_login.clone();
-
-                let user = self
-                    .client
-                    .get_user_from_id(&msg.from_broadcaster_user_id, &self.token)
-                    .await
-                    .into_diagnostic()?
-                    .ok_or_else(|| miette!("No user found for channel {}.", flogin))?;
-
-                let channel = self
-                    .client
-                    .get_channel_from_id(&msg.from_broadcaster_user_id, &self.token)
-                    .await
-                    .into_diagnostic()?
-                    .ok_or_else(|| miette!("No channel info found for the user {}.", flogin))?;
-
-                let message = format!(
-                    "{}さんから{}名のRAIDを頂きました！今日は「{}」を遊んでいたみたい",
-                    user.login, msg.viewers, channel.game_name,
+                let mut message = Message::new();
+                message.insert("event".to_string(), Property::Text("raid".to_string()));
+                message.insert(
+                    "from_broadcaster_user_id".to_string(),
+                    Property::Text(msg.from_broadcaster_user_id.to_string()),
                 );
-                self.send_notification(&message).await?;
-                self.send_shoutout(&msg.from_broadcaster_user_id).await?;
+                message.insert(
+                    "from_broadcaster_user_login".to_string(),
+                    Property::Text(msg.from_broadcaster_user_login.to_string()),
+                );
+                message.insert(
+                    "from_broadcaster_user_name".to_string(),
+                    Property::Text(msg.from_broadcaster_user_name.to_string()),
+                );
+                message.insert(
+                    "to_broadcaster_user_id".to_string(),
+                    Property::Text(msg.to_broadcaster_user_id.to_string()),
+                );
+                message.insert(
+                    "to_broadcaster_user_login".to_string(),
+                    Property::Text(msg.to_broadcaster_user_login.to_string()),
+                );
+                message.insert(
+                    "to_broadcaster_user_name".to_string(),
+                    Property::Text(msg.to_broadcaster_user_name.to_string()),
+                );
+                message.insert("viewers".to_string(), Property::I64(msg.viewers));
+                self.sender.send(message).into_diagnostic()?;
                 Ok(())
             }
             _ => Ok(()),
