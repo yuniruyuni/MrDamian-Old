@@ -8,8 +8,8 @@ use miette::{IntoDiagnostic, Result, WrapErr};
 use std::env;
 
 use tauri::{
-    async_runtime, generate_context, generate_handler, Builder, CustomMenuItem, SystemTray,
-    SystemTrayMenu, SystemTrayMenuItem, SystemTrayEvent, Manager
+    async_runtime, generate_context, generate_handler, Builder, CustomMenuItem, Manager, RunEvent,
+    SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
 };
 
 struct Config {
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
                 } else {
                     window.show().unwrap();
                 }
-            },
+            }
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
                 "quit" => {
                     std::process::exit(0);
@@ -87,6 +87,13 @@ fn main() -> Result<()> {
                 wsclient.run().await
             });
             Ok(())
+        })
+        .on_window_event(|event| match event.event() {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                event.window().hide().expect("failed to hide window");
+                api.prevent_close();
+            }
+            _ => (),
         })
         .run(generate_context!())
         .into_diagnostic()
