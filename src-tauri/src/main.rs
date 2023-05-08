@@ -4,8 +4,9 @@
 mod client;
 
 use client::Client;
-use miette::{IntoDiagnostic, Result, WrapErr};
+use miette::{Diagnostic, IntoDiagnostic, Result, WrapErr};
 use std::env;
+use thiserror::Error;
 
 use tauri::{
     async_runtime, generate_context, generate_handler, AppHandle, Builder, CustomMenuItem, Manager,
@@ -49,52 +50,73 @@ enum SystemTrayMenuMode {
     Open,
 }
 
-fn create_tray_menu(mode: SystemTrayMenuMode) -> SystemTrayMenu {
-    let visibility = match mode {
-        SystemTrayMenuMode::Hide => CustomMenuItem::new("open".to_string(), "Open"),
-        SystemTrayMenuMode::Open => CustomMenuItem::new("hide".to_string(), "Hide"),
-    };
+impl From<SystemTrayMenuMode> for CustomMenuItem {
+    fn from(mode: SystemTrayMenuMode) -> Self {
+        use SystemTrayMenuMode::*;
+        match mode {
+            Hide => CustomMenuItem::new("hide".to_string(), "Hide"),
+            Open => CustomMenuItem::new("open".to_string(), "Open"),
+        }
+    }
+}
 
+fn create_tray_menu(mode: SystemTrayMenuMode) -> SystemTrayMenu {
     SystemTrayMenu::new()
-        .add_item(visibility)
+        .add_item(mode.into())
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(CustomMenuItem::new("quit".to_string(), "Quit"))
 }
 
+#[derive(Error, Debug, Diagnostic)]
+enum MrDamianError {
+    #[error("window not found")]
+    WindowNotFound,
+}
+
+fn hide_window(app: &AppHandle) -> Result<()> {
+    let window = app
+        .get_window("main")
+        .ok_or(MrDamianError::WindowNotFound)
+        .into_diagnostic()?;
+    window.hide().into_diagnostic()?;
+    app.tray_handle()
+        .set_menu(create_tray_menu(SystemTrayMenuMode::Hide))
+        .into_diagnostic()
+        .context("failed to change hide window system tray menu")
+}
+
+fn show_window(app: &AppHandle) -> Result<()> {
+    let window = app
+        .get_window("main")
+        .ok_or(MrDamianError::WindowNotFound)?;
+    window.show().into_diagnostic()?;
+    app.tray_handle()
+        .set_menu(create_tray_menu(SystemTrayMenuMode::Open))
+        .into_diagnostic()
+        .context("failed to change open window system tray menu")
+}
+
+fn flip_window_visibility(app: &AppHandle) -> Result<()> {
+    let window = app
+        .get_window("main")
+        .ok_or(MrDamianError::WindowNotFound)?;
+    if window.is_visible().unwrap_or(false) {
+        hide_window(app)
+    } else {
+        show_window(app)
+    }
+}
+
 fn on_system_tray_event(app: &AppHandle, event: SystemTrayEvent) {
+    use SystemTrayEvent::*;
     match event {
-        SystemTrayEvent::DoubleClick { .. } => {
-            let window = app.get_window("main").unwrap();
-            if window.is_visible().unwrap_or(false) {
-                window.hide().unwrap();
-                app.tray_handle()
-                    .set_menu(create_tray_menu(SystemTrayMenuMode::Hide))
-                    .expect("failed to set menu");
-            } else {
-                window.show().unwrap();
-                app.tray_handle()
-                    .set_menu(create_tray_menu(SystemTrayMenuMode::Open))
-                    .expect("failed to set menu");
-            }
+        DoubleClick { .. } => {
+            flip_window_visibility(app).expect("failed to flip main window visibility.")
         }
-        SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-            "quit" => {
-                std::process::exit(0);
-            }
-            "hide" => {
-                let window = app.get_window("main").unwrap();
-                window.hide().unwrap();
-                app.tray_handle()
-                    .set_menu(create_tray_menu(SystemTrayMenuMode::Hide))
-                    .expect("failed to set menu");
-            }
-            "open" => {
-                let window = app.get_window("main").unwrap();
-                window.show().unwrap();
-                app.tray_handle()
-                    .set_menu(create_tray_menu(SystemTrayMenuMode::Open))
-                    .expect("failed to set menu");
-            }
+        MenuItemClick { id, .. } => match id.as_str() {
+            "quit" => std::process::exit(0),
+            "hide" => hide_window(app).expect("failed to hide main window."),
+            "open" => show_window(app).expect("failed to show main window."),
             _ => {}
         },
         _ => {}
