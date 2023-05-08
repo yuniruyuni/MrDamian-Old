@@ -43,7 +43,7 @@ const Label: React.FC<{label: string}> = ({ label }) => (
 
 const InputPort: React.FC<Input> = ({name}) => (
   <p>
-    <Handle type="target" position={Position.Left} id="in-a" className={PortCSS} />
+    <Handle type="target" position={Position.Left} id={name} className={PortCSS} />
     {name}
   </p>
 );
@@ -66,7 +66,7 @@ const OutputPortsCSS = css`
 const OutputPort: React.FC<Output> = ({name}) => (
   <p>
     {name}
-    <Handle className={PortCSS} type="source" position={Position.Right} id="out-a" />
+    <Handle className={PortCSS} type="source" position={Position.Right} id={name} />
   </p>
 );
 
