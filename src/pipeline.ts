@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 
-import type { Node, Edge, Connection, HandleType } from 'reactflow';
+import type { Node as RFNode, Edge as RFEdge, Connection, HandleType } from 'reactflow';
 
 import {
   useNodesState,
@@ -11,6 +11,13 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
+
+export type Pipeline = {
+  nodes: Node[],
+  edges: Edge[],
+};
+
+export type Node = RFNode<NodeData>;
 
 export type InputPort = {
   name: string,
@@ -26,10 +33,17 @@ export type NodeData = {
   outputs: OutputPort[],
 };
 
+export type Edge = RFEdge<EdgeData>;
+
+export type EdgeData = {};
+
 export function usePipeline() {
   const edgeUpdateSuccessful = useRef(true);
 
-  const nodeTypes = useMemo(() => ({ propertiesNode: PropertiesNode, }), []);
+  const nodeTypes = useMemo(() => ({
+    TwitchSubscriber: PropertiesNode,
+    TwitchPublisher: PropertiesNode,
+  }), []);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -41,27 +55,23 @@ export function usePipeline() {
     setEdges((edges) => updateEdge(oldEdge, newConnection, edges));
   }, []);
   const onEdgeUpdateEnd = useCallback((_event: MouseEvent | TouchEvent, target: Edge, _handle: HandleType) => {
-    if(!edgeUpdateSuccessful.current) {
+    if (!edgeUpdateSuccessful.current) {
       setEdges((edges) => edges.filter((e) => e.id !== target.id));
     }
     edgeUpdateSuccessful.current = true;
   }, []);
 
   const onConnect = useCallback(
-    (connection: Connection) => setEdges((edge) => addEdge(connection, edge)),
+    (connection: Connection) => setEdges((edges) => addEdge(connection, edges)),
     [setEdges],
   );
 
   useEffect(() => {
     (async () => {
-      const response = await invoke<{id: string, data: NodeData}[]>("nodes");
-      const nodes: Node[] = response.map(({id, data}) => ({
-        type: "propertiesNode",
-        id,
-        data,
-        position: { x: 0, y: 0 },
-      }));
+      const { nodes, edges } = await invoke<Pipeline>("pipeline");
+      console.log(nodes, edges);
       setNodes(nodes);
+      setEdges(edges);
     })()
   }, []);
 

@@ -11,35 +11,50 @@ use std::sync::mpsc::channel;
 
 use miette::{IntoDiagnostic, Result, WrapErr};
 
+use pipeline::Position;
 use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
 
+use crate::pipeline::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline};
 use crate::twitch::{Publisher, Subscriber};
-use crate::pipeline::{Node, NodeData, InputPort, OutputPort};
 
 #[tauri::command]
-fn nodes() -> Vec<Node> {
-    vec![
-        Node {
-            id: "twitch/subscriber/1".to_string(),
-            data: NodeData {
-                label: "Twitch Subscriber".to_string(),
-                inputs: vec![],
-                outputs: vec![OutputPort {
-                    name: "raid".to_string(),
-                }],
+fn pipeline() -> Pipeline {
+    Pipeline {
+        nodes: vec![
+            Node {
+                node_type: "TwitchSubscriber".to_string(),
+                id: "1".to_string(),
+                data: NodeData {
+                    label: "Twitch Subscriber".to_string(),
+                    inputs: vec![],
+                    outputs: vec![OutputPort {
+                        name: "raid".to_string(),
+                    }],
+                },
+                position: Position { x: 20.0, y: 20.0 },
             },
-        },
-        Node {
-            id: "twitch/publisher/1".to_string(),
-            data: NodeData {
-                label: "Twitch Publisher".to_string(),
-                inputs: vec![InputPort {
-                    name: "message".to_string(),
-                }],
-                outputs: vec![],
+            Node {
+                node_type: "TwitchPublisher".to_string(),
+                id: "2".to_string(),
+                data: NodeData {
+                    label: "Twitch Publisher".to_string(),
+                    inputs: vec![InputPort {
+                        name: "message".to_string(),
+                    }],
+                    outputs: vec![],
+                },
+                position: Position { x: 300.0, y: 120.0 },
             },
-        },
-    ]
+        ],
+        edges: vec![Edge {
+            id: "connect test".to_string(),
+            label: "connect".to_string(),
+            source: "1".to_string(),
+            source_handle: "raid".to_string(),
+            target: "2".to_string(),
+            target_handle: "message".to_string(),
+        }],
+    }
 }
 
 fn main() -> Result<()> {
@@ -65,7 +80,7 @@ fn main() -> Result<()> {
     });
 
     Builder::default()
-        .invoke_handler(generate_handler![nodes])
+        .invoke_handler(generate_handler![pipeline])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {
