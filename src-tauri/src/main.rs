@@ -14,11 +14,32 @@ use miette::{IntoDiagnostic, Result, WrapErr};
 use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
 
 use crate::twitch::{Publisher, Subscriber};
+use crate::pipeline::{Node, NodeData, InputPort, OutputPort};
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn nodes() -> Vec<Node> {
+    vec![
+        Node {
+            id: "twitch/subscriber/1".to_string(),
+            data: NodeData {
+                label: "Twitch Subscriber".to_string(),
+                inputs: vec![],
+                outputs: vec![OutputPort {
+                    name: "raid".to_string(),
+                }],
+            },
+        },
+        Node {
+            id: "twitch/publisher/1".to_string(),
+            data: NodeData {
+                label: "Twitch Publisher".to_string(),
+                inputs: vec![InputPort {
+                    name: "message".to_string(),
+                }],
+                outputs: vec![],
+            },
+        },
+    ]
 }
 
 fn main() -> Result<()> {
@@ -44,7 +65,7 @@ fn main() -> Result<()> {
     });
 
     Builder::default()
-        .invoke_handler(generate_handler![greet])
+        .invoke_handler(generate_handler![nodes])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {

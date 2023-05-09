@@ -1,5 +1,7 @@
-import { useCallback, useMemo } from "react";
-// import { invoke } from "@tauri-apps/api/tauri";
+import { useCallback, useMemo, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
+
+import type { Node } from 'reactflow';
 
 import ReactFlow, {
   MiniMap,
@@ -14,52 +16,42 @@ import 'reactflow/dist/style.css';
 
 import { PropertiesNode } from "./PropertiesNode";
 
-const initialEdges = [
-  {id: 'e1-2', source: '1', target: '2'},
-];
+type InputPort = {
+  name: string,
+};
 
-const initialNodes = [
-  {
-    id: '1',
-    data: {
-      label: 'araara',
-      inputs: [{name: 'ara-a'}],
-      outputs: [{name: 'ara-b'}],
-    },
-    position: { x: 50, y: 0 },
-    type: 'propertiesNode'
-  },
-  {
-    id: '2',
-    data: {
-      label: 'nipanipa',
-      inputs: [{name: 'nipa-a'}],
-      outputs: [{name: 'nipa-b'}, {name: 'nipa-c'}],
-    },
-    position: { x: 50, y: 100 },
-    type: 'propertiesNode'
-  },
-  {
-    id: '3',
-    data: {
-      label: 'yuniruyuni',
-      inputs: [{name: 'prop-a'}, {name: 'prop-b'}],
-      outputs: [{name: 'prop-c'}],
-    },
-    position: { x: 50, y: 200 },
-    type: 'propertiesNode'
-  },
-];
+type OutputPort = {
+  name: string,
+};
+
+type NodeData = {
+  label: string,
+  inputs: InputPort[],
+  outputs: OutputPort[],
+};
 
 function App() {
   const nodeTypes = useMemo(() => ({ propertiesNode: PropertiesNode, }), []);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const onConnect = useCallback(
     (params: any) => setEdges((edge) => addEdge(params, edge)),
     [setEdges],
   );
+
+  useEffect(() => {
+    (async () => {
+      const response = await invoke<{id: string, data: NodeData}[]>("nodes");
+      const nodes: Node[] = response.map(({id, data}) => ({
+        type: "propertiesNode",
+        id,
+        data,
+        position: { x: 0, y: 0 },
+      }));
+      setNodes(nodes);
+    })()
+  }, []);
 
   return (
     <div className="container">
