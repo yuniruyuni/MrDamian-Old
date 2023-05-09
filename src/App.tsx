@@ -16,19 +16,7 @@ import 'reactflow/dist/style.css';
 
 import { PropertiesNode } from "./PropertiesNode";
 
-type InputPort = {
-  name: string,
-};
-
-type OutputPort = {
-  name: string,
-};
-
-type NodeData = {
-  label: string,
-  inputs: InputPort[],
-  outputs: OutputPort[],
-};
+import type { NodeData } from "./pipeline";
 
 function App() {
   const nodeTypes = useMemo(() => ({ propertiesNode: PropertiesNode, }), []);
