@@ -60,22 +60,21 @@ fn pipeline() -> Pipeline {
 fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
-    let (sender, receiver) = channel::<pipeline::Message>();
+    let config = config::Config::load_envs()?;
+    let mut publisher = Publisher::new(&config.bot, &config.channel, &config.token);
+    let mut subscriber = Subscriber::new(&config.bot, &config.channel, &config.token);
+
     async_runtime::spawn(async move {
-        let config = config::Config::load_envs()?;
-        let mut subscriber =
-            Subscriber::new(sender, &config.bot, &config.channel, &config.token).await?;
-        let res = subscriber.run().await;
-        eprintln!("Subscriber exited with {:?}", res);
+        publisher.setup().await?;
+        let res = publisher.run().await;
+        eprintln!("Publisher exited with {:?}", res);
         res
     });
 
     async_runtime::spawn(async move {
-        let config = config::Config::load_envs()?;
-        let mut publisher =
-            Publisher::new(receiver, &config.bot, &config.channel, &config.token).await?;
-        let res = publisher.run().await;
-        eprintln!("Publisher exited with {:?}", res);
+        subscriber.setup().await?;
+        let res = subscriber.run().await;
+        eprintln!("Subscriber exited with {:?}", res);
         res
     });
 

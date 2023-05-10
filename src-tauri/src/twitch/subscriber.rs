@@ -5,19 +5,19 @@ use twitch_api::{
         ReconnectPayload, WelcomePayload,
     },
     helix::HelixClient,
-    twitch_oauth2::UserToken,
+    twitch_oauth2::{AccessToken, UserToken},
     types::{UserId, UserName},
 };
 
-use std::sync::mpsc::Sender;
-
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::pipeline::{Message, Property};
+use crate::pipeline::{Component, Packet, Message, Property};
+use crate::error::MrDamianError;
 
 pub struct Subscriber {
     pub client: HelixClient<'static, reqwest::Client>,
-    pub token: UserToken,
+    pub oauth: AccessToken,
+    pub token: Option<UserToken>,
 
     pub channel: UserName,
     pub channel_id: UserId,
@@ -28,40 +28,42 @@ pub struct Subscriber {
     pub session_id: Option<String>,
     pub reconnect_url: Option<url::Url>,
 
-    pub sender: Sender<Message>,
+    pub component: Component,
 }
 
 type Connection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 impl Subscriber {
-    pub async fn new(
-        sender: Sender<Message>,
-        bot: &str,
-        channel: &str,
-        oauth: &str,
-    ) -> Result<Self> {
+    pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
-        let token = UserToken::from_existing(&client, oauth.into(), None, None)
-            .await
-            .into_diagnostic()?;
 
-        Ok(Self {
+        Self {
             client,
             channel: channel.into(),
             bot: bot.into(),
-            token,
+            oauth: oauth.into(),
+            token: None,
             session_id: None,
             reconnect_url: None,
             channel_id: "".into(),
             bot_id: "".into(),
-            sender,
-        })
+            component: Component::new("TwitchSubscriber"),
+        }
+    }
+
+    pub async fn setup(&mut self) -> Result<()> {
+        let token = UserToken::from_token(&self.client, self.oauth.clone())
+            .await
+            .into_diagnostic()?;
+        self.token = Some(token);
+        Ok(())
     }
 
     pub async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
+        let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
         self.client
-            .get_user_from_login(name, &self.token)
+            .get_user_from_login(name, token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
@@ -133,8 +135,9 @@ impl Subscriber {
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
+                let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
                 self.client
-                    .req_post(req, body, &self.token)
+                    .req_post(req, body, token)
                     .await
                     .into_diagnostic()?;
             }
@@ -186,7 +189,7 @@ impl Subscriber {
                     Property::Text(msg.to_broadcaster_user_name.to_string()),
                 );
                 message.insert("viewers".to_string(), Property::I64(msg.viewers));
-                self.sender.send(message).into_diagnostic()?;
+                self.component.send(Packet{ port: "raid".to_string(), message })?;
                 Ok(())
             }
             _ => Ok(()),

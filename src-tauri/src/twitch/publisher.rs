@@ -1,60 +1,60 @@
 use twitch_api::{
     helix::HelixClient,
     helix::{self, chat::AnnouncementColor},
-    twitch_oauth2::UserToken,
+    twitch_oauth2::{UserToken, AccessToken},
     types::{UserId, UserName},
 };
 
-use std::sync::mpsc::Receiver;
-
 use miette::{miette, IntoDiagnostic, Result};
 
-use crate::pipeline::{Message, Property};
+use crate::{pipeline::{Component, Property}, error::MrDamianError};
 
 pub struct Publisher {
-    pub receiver: Receiver<Message>,
-
     pub client: HelixClient<'static, reqwest::Client>,
-    pub token: UserToken,
+    pub oauth: AccessToken,
+    pub token: Option<UserToken>,
 
     pub channel: UserName,
     pub channel_id: UserId,
 
     pub bot: UserName,
     pub bot_id: UserId,
+
+    pub component: Component,
 }
 
 impl Publisher {
-    pub async fn new(
-        receiver: Receiver<Message>,
-        bot: &str,
-        channel: &str,
-        oauth: &str,
-    ) -> Result<Self> {
+    pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
-        let token = UserToken::from_existing(&client, oauth.into(), None, None)
-            .await
-            .into_diagnostic()?;
 
-        let mut res = Self {
-            receiver,
+        Self {
             client,
-            token,
+            oauth: oauth.into(),
+            token: None,
             channel: channel.into(),
             channel_id: "".into(),
             bot: bot.into(),
             bot_id: "".into(),
-        };
+            component: Component::new("TwitchPublisher"),
+        }
+    }
 
-        res.channel_id = res.get_user_id_for(&res.channel.clone()).await?;
-        res.bot_id = res.get_user_id_for(&res.bot.clone()).await?;
+    pub async fn setup(&mut self) -> Result<()> {
+        let token = UserToken::from_token(&self.client, self.oauth.clone())
+            .await
+            .into_diagnostic()?;
+        self.token = Some(token);
 
-        Ok(res)
+        self.channel_id = self.get_user_id_for(&self.channel.clone()).await?;
+        self.bot_id = self.get_user_id_for(&self.bot.clone()).await?;
+
+        Ok(())
     }
 
     async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
+        let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
         self.client
-            .get_user_from_login(name, &self.token)
+            .get_user_from_login(name, token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
@@ -62,6 +62,7 @@ impl Publisher {
     }
 
     async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
+        let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
         let req = helix::chat::SendAShoutoutRequest::new(
             self.channel_id.clone(),
             to_broadcaster.clone(),
@@ -69,20 +70,21 @@ impl Publisher {
         );
 
         self.client
-            .req_post(req, Default::default(), &self.token)
+            .req_post(req, Default::default(), token)
             .await
             .into_diagnostic()?;
         Ok(())
     }
 
     async fn send_notification(&mut self, message: &str) -> Result<()> {
+        let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
         self.client
             .send_chat_announcement(
                 self.channel_id.as_str(),
                 self.bot_id.as_str(),
                 message,
                 AnnouncementColor::Primary,
-                &self.token,
+                token,
             )
             .await
             .into_diagnostic()?;
@@ -91,7 +93,14 @@ impl Publisher {
 
     pub async fn run(&mut self) -> Result<()> {
         loop {
-            let msg = self.receiver.recv().into_diagnostic()?;
+            let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
+            let packet = self.component.receive()?;
+
+            if packet.port != "message" {
+                // drop all packets that are not from the message port.
+                continue
+            }
+            let msg = packet.message;
 
             // TODO: allow users to customize the message via text formating component.
             let Some(Property::Text(flogin)) = msg.get("from_broadcaster_user_login") else {
@@ -107,14 +116,14 @@ impl Publisher {
 
             let user = self
                 .client
-                .get_user_from_id(&fid, &self.token)
+                .get_user_from_id(&fid, token)
                 .await
                 .into_diagnostic()?
                 .ok_or_else(|| miette!("No user found for channel {}.", flogin))?;
 
             let channel = self
                 .client
-                .get_channel_from_id(&fid, &self.token)
+                .get_channel_from_id(&fid, token)
                 .await
                 .into_diagnostic()?
                 .ok_or_else(|| miette!("No channel info found for the user {}.", flogin))?;
