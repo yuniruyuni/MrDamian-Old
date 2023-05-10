@@ -9,6 +9,12 @@ pub enum MrDamianError {
     #[error("message key not found")]
     MessageKeyNotFound,
 
+    #[error("port not found")]
+    PortNotFound(String),
+
+    #[error("invalid token")]
+    InvalidToken(),
+
     // ------- infrastructure level errors
     #[error("window not found")]
     WindowNotFound,

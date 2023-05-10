@@ -1,10 +1,8 @@
-use std::collections::HashMap;
+mod message;
+mod packet;
+mod port;
+mod component;
 
-pub type Name = String;
-
-pub enum Property {
-    Text(String),
-    I64(i64),
-}
-
-pub type Message = HashMap<Name, Property>;
+pub use message::*;
+pub use packet::*;
+pub use component::*;
