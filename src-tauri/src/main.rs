@@ -8,14 +8,13 @@ mod protocol;
 mod tray;
 mod twitch;
 
-use std::sync::mpsc::channel;
-
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
 
 use protocol::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline, Position};
 use twitch::{Publisher, Subscriber};
+use pipeline::Component;
 
 #[tauri::command]
 fn pipeline() -> Pipeline {
@@ -63,6 +62,8 @@ fn main() -> Result<()> {
     let config = config::Config::load_envs()?;
     let mut publisher = Publisher::new(&config.bot, &config.channel, &config.token);
     let mut subscriber = Subscriber::new(&config.bot, &config.channel, &config.token);
+
+    Component::connect(&mut subscriber.component, &mut publisher.component, "raid", "message");
 
     async_runtime::spawn(async move {
         publisher.setup().await?;
