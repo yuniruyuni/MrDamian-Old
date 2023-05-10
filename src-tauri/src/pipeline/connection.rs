@@ -1,18 +1,18 @@
-use miette::Result;
-use crate::pipeline::port::{OutputPorts, InputPort, OutputPort};
 use crate::pipeline::packet::Packet;
+use crate::pipeline::port::{InputPort, OutputPort, OutputPorts};
+use miette::Result;
+
+use super::Component;
 
 #[derive(Debug)]
 pub struct Connection {
-    pub name: String,
     pub input: InputPort,
     pub outputs: OutputPorts,
 }
 
 impl Connection {
-    pub fn new(name: &str) -> Connection {
+    pub fn new() -> Connection {
         Self {
-            name: name.to_string(),
             input: InputPort::new(),
             outputs: OutputPorts::default(),
         }
@@ -26,8 +26,15 @@ impl Connection {
         self.outputs.send(packet)
     }
 
-    pub fn connect(src: &mut Connection, dest: &mut Connection, src_port: &str, dst_port: &str) {
-        src.attach(src_port, dest.accquire(dst_port))
+    pub fn connect(
+        src: &mut dyn Component,
+        dst: &mut dyn Component,
+        src_port: &str,
+        dst_port: &str,
+    ) {
+        let src = src.connection();
+        let dst = dst.connection();
+        src.attach(src_port, dst.accquire(dst_port))
     }
 
     fn attach(&mut self, src: &str, port: OutputPort) {

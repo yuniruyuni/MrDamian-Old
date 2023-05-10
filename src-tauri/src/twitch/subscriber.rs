@@ -9,30 +9,33 @@ use twitch_api::{
     types::{UserId, UserName},
 };
 
+use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::pipeline::{Connection, Packet, Message, Property};
 use crate::error::MrDamianError;
-
-pub struct Subscriber {
-    pub client: HelixClient<'static, reqwest::Client>,
-    pub oauth: AccessToken,
-    pub token: Option<UserToken>,
-
-    pub channel: UserName,
-    pub channel_id: UserId,
-
-    pub bot: UserName,
-    pub bot_id: UserId,
-
-    pub session_id: Option<String>,
-    pub reconnect_url: Option<url::Url>,
-
-    pub connection: Connection,
-}
+use crate::pipeline::{Component, Connection, Message, Packet, PassiveComponent, Property};
 
 type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+pub struct Subscriber {
+    client: HelixClient<'static, reqwest::Client>,
+    oauth: AccessToken,
+    token: Option<UserToken>,
+
+    channel: UserName,
+    channel_id: UserId,
+
+    bot: UserName,
+    bot_id: UserId,
+
+    session_id: Option<String>,
+    reconnect_url: Option<url::Url>,
+
+    socket: Option<WSConnection>,
+
+    conn: Connection,
+}
 
 impl Subscriber {
     pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
@@ -40,6 +43,7 @@ impl Subscriber {
 
         Self {
             client,
+            socket: None,
             channel: channel.into(),
             bot: bot.into(),
             oauth: oauth.into(),
@@ -48,50 +52,18 @@ impl Subscriber {
             reconnect_url: None,
             channel_id: "".into(),
             bot_id: "".into(),
-            connection: Connection::new("TwitchSubscriber"),
+            conn: Connection::new(),
         }
     }
 
-    pub async fn setup(&mut self) -> Result<()> {
-        let token = UserToken::from_token(&self.client, self.oauth.clone())
-            .await
-            .into_diagnostic()?;
-        self.token = Some(token);
-        Ok(())
-    }
-
     pub async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
-        let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
+        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
         self.client
             .get_user_from_login(name, token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {channel}."))
             .map(|user| user.id)
-    }
-
-    pub async fn run(&mut self) -> Result<()> {
-        let mut socket = self.connect().await?;
-        loop {
-            use tokio_tungstenite::tungstenite::*;
-            match socket.next().await {
-                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(msg))) => {
-                    if let Err(err) = self.process_message(msg).await {
-                        eprintln!("message process error: {}", err);
-                    }
-                },
-                Some(err @ Err(Error::ConnectionClosed)) => {
-                    // but if twitch says you should close connection, we want to along with that.
-                    err.into_diagnostic().wrap_err("Twitch connection was closed.")?;
-                },
-                None | Some(Err(tokio_tungstenite::tungstenite::Error::Protocol(
-                    tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                ))) => {
-                    socket = self.connect().await?;
-                },
-                _ => (),
-            }
-        }
     }
 
     async fn connect(&mut self) -> Result<WSConnection> {
@@ -135,7 +107,7 @@ impl Subscriber {
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
-                let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
+                let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
                 self.client
                     .req_post(req, body, token)
                     .await
@@ -189,10 +161,64 @@ impl Subscriber {
                     Property::Text(msg.to_broadcaster_user_name.to_string()),
                 );
                 message.insert("viewers".to_string(), Property::I64(msg.viewers));
-                self.connection.send(Packet{ port: "raid".to_string(), message })?;
+                self.conn.send(Packet {
+                    port: "raid".to_string(),
+                    message,
+                })?;
                 Ok(())
             }
             _ => Ok(()),
         }
+    }
+}
+
+#[async_trait]
+impl Component for Subscriber {
+    fn name(&self) -> String {
+        "TwitchSubscriber".to_string()
+    }
+
+    fn connection(&mut self) -> &mut Connection {
+        &mut self.conn
+    }
+
+    async fn run(&mut self) -> Result<()> {
+        self.default_run().await
+    }
+}
+
+#[async_trait]
+impl PassiveComponent for Subscriber {
+    async fn setup(&mut self) -> Result<()> {
+        let token = UserToken::from_token(&self.client, self.oauth.clone())
+            .await
+            .into_diagnostic()?;
+        self.token = Some(token);
+        self.socket = Some(self.connect().await?);
+        Ok(())
+    }
+
+    async fn handler(&mut self) -> Result<Vec<Packet>> {
+        use tokio_tungstenite::tungstenite::*;
+
+        let socket = self.socket.as_mut().ok_or(MrDamianError::InvalidSocket)?;
+        match socket.next().await {
+            Some(Ok(Message::Text(msg))) => {
+                if let Err(err) = self.process_message(msg).await {
+                    eprintln!("message process error: {}", err);
+                }
+            }
+            Some(err @ Err(Error::ConnectionClosed)) => {
+                // but if twitch says you should close connection, we want to along with that.
+                err.into_diagnostic()
+                    .wrap_err("Twitch connection was closed.")?;
+            }
+            None
+            | Some(Err(Error::Protocol(error::ProtocolError::ResetWithoutClosingHandshake))) => {
+                self.socket = Some(self.connect().await?);
+            }
+            _ => (),
+        }
+        Ok(vec![])
     }
 }

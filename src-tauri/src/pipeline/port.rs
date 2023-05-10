@@ -1,7 +1,7 @@
-use std::sync::mpsc::{channel, Sender, Receiver};
 use std::collections::HashMap;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
-use miette::{Result, IntoDiagnostic};
+use miette::{IntoDiagnostic, Result};
 
 use crate::error::MrDamianError;
 use crate::pipeline::message::Message;
@@ -16,7 +16,10 @@ pub struct InputPort {
 impl InputPort {
     pub fn new() -> InputPort {
         let (base_sender, receiver) = channel::<Packet>();
-        Self { base_sender, receiver }
+        Self {
+            base_sender,
+            receiver,
+        }
     }
 
     pub fn accquire(&self, dest: &str) -> OutputPort {
@@ -39,7 +42,7 @@ pub struct OutputPort {
 
 impl OutputPort {
     pub fn send(&self, message: Message) -> Result<()> {
-        let packet = Packet{
+        let packet = Packet {
             port: self.dest.clone(),
             message,
         };
@@ -61,7 +64,8 @@ impl OutputPorts {
     }
 
     pub fn send(&self, packet: Packet) -> Result<()> {
-        let port = self.ports
+        let port = self
+            .ports
             .get(&packet.port)
             .ok_or_else(|| MrDamianError::PortNotFound(packet.port.clone()))?;
         for p in port {
