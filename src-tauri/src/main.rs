@@ -4,6 +4,7 @@
 mod config;
 mod error;
 mod pipeline;
+mod protocol;
 mod tray;
 mod twitch;
 
@@ -11,11 +12,10 @@ use std::sync::mpsc::channel;
 
 use miette::{IntoDiagnostic, Result, WrapErr};
 
-use pipeline::Position;
 use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
 
-use crate::pipeline::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline};
-use crate::twitch::{Publisher, Subscriber};
+use protocol::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline, Position};
+use twitch::{Publisher, Subscriber};
 
 #[tauri::command]
 fn pipeline() -> Pipeline {
