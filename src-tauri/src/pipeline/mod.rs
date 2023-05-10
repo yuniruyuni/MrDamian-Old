@@ -1,8 +1,8 @@
 mod message;
 mod packet;
 mod port;
-mod component;
+mod connection;
 
 pub use message::*;
 pub use packet::*;
-pub use component::*;
+pub use connection::*;

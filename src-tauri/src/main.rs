@@ -14,7 +14,7 @@ use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTr
 
 use protocol::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline, Position};
 use twitch::{Publisher, Subscriber};
-use pipeline::Component;
+use pipeline::Connection;
 
 #[tauri::command]
 fn pipeline() -> Pipeline {
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     let mut publisher = Publisher::new(&config.bot, &config.channel, &config.token);
     let mut subscriber = Subscriber::new(&config.bot, &config.channel, &config.token);
 
-    Component::connect(&mut subscriber.component, &mut publisher.component, "raid", "message");
+    Connection::connect(&mut subscriber.connection, &mut publisher.connection, "raid", "message");
 
     async_runtime::spawn(async move {
         publisher.setup().await?;

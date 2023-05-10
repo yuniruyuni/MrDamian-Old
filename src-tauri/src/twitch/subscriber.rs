@@ -11,7 +11,7 @@ use twitch_api::{
 
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::pipeline::{Component, Packet, Message, Property};
+use crate::pipeline::{Connection, Packet, Message, Property};
 use crate::error::MrDamianError;
 
 pub struct Subscriber {
@@ -28,10 +28,10 @@ pub struct Subscriber {
     pub session_id: Option<String>,
     pub reconnect_url: Option<url::Url>,
 
-    pub component: Component,
+    pub connection: Connection,
 }
 
-type Connection =
+type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 impl Subscriber {
@@ -48,7 +48,7 @@ impl Subscriber {
             reconnect_url: None,
             channel_id: "".into(),
             bot_id: "".into(),
-            component: Component::new("TwitchSubscriber"),
+            connection: Connection::new("TwitchSubscriber"),
         }
     }
 
@@ -94,7 +94,7 @@ impl Subscriber {
         }
     }
 
-    async fn connect(&mut self) -> Result<Connection> {
+    async fn connect(&mut self) -> Result<WSConnection> {
         let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
 
         let (socket, _) = tokio_tungstenite::connect_async_with_config(
@@ -189,7 +189,7 @@ impl Subscriber {
                     Property::Text(msg.to_broadcaster_user_name.to_string()),
                 );
                 message.insert("viewers".to_string(), Property::I64(msg.viewers));
-                self.component.send(Packet{ port: "raid".to_string(), message })?;
+                self.connection.send(Packet{ port: "raid".to_string(), message })?;
                 Ok(())
             }
             _ => Ok(()),

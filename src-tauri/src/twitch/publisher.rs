@@ -7,7 +7,7 @@ use twitch_api::{
 
 use miette::{miette, IntoDiagnostic, Result};
 
-use crate::{pipeline::{Component, Property}, error::MrDamianError};
+use crate::{pipeline::{Connection, Property}, error::MrDamianError};
 
 pub struct Publisher {
     pub client: HelixClient<'static, reqwest::Client>,
@@ -20,7 +20,7 @@ pub struct Publisher {
     pub bot: UserName,
     pub bot_id: UserId,
 
-    pub component: Component,
+    pub connection: Connection,
 }
 
 impl Publisher {
@@ -35,7 +35,7 @@ impl Publisher {
             channel_id: "".into(),
             bot: bot.into(),
             bot_id: "".into(),
-            component: Component::new("TwitchPublisher"),
+            connection: Connection::new("TwitchPublisher"),
         }
     }
 
@@ -94,7 +94,7 @@ impl Publisher {
     pub async fn run(&mut self) -> Result<()> {
         loop {
             let token = self.token.as_ref().ok_or_else(MrDamianError::InvalidToken)?;
-            let packet = self.component.receive()?;
+            let packet = self.connection.receive()?;
 
             if packet.port != "message" {
                 // drop all packets that are not from the message port.
