@@ -10,53 +10,67 @@ mod twitch;
 
 use hashbrown::HashMap;
 use miette::{IntoDiagnostic, Result, WrapErr};
+use std::sync::Mutex;
 
-use tauri::{async_runtime, generate_context, generate_handler, Builder, SystemTray, WindowEvent};
+use tauri::{
+    async_runtime, generate_context, generate_handler, Builder, Manager, State, SystemTray,
+    WindowEvent,
+};
 
 use pipeline::{Component, Connection};
-use protocol::{Edge, InputPort, Node, NodeData, OutputPort, Pipeline, Position};
+use protocol::{InputPort, Node, NodeData, OutputPort, Pipeline, Position};
 use twitch::{Publisher, Subscriber};
 
 use error::MrDamianError;
 
-#[tauri::command]
-fn pipeline() -> Pipeline {
-    Pipeline {
-        nodes: vec![
-            Node {
-                node_type: "TwitchSubscriber".to_string(),
-                id: "1".to_string(),
-                data: NodeData {
-                    label: "Twitch Subscriber".to_string(),
-                    inputs: vec![],
-                    outputs: vec![OutputPort {
-                        name: "raid".to_string(),
-                    }],
-                },
-                position: Position { x: 20.0, y: 20.0 },
-            },
-            Node {
-                node_type: "TwitchPublisher".to_string(),
-                id: "2".to_string(),
-                data: NodeData {
-                    label: "Twitch Publisher".to_string(),
-                    inputs: vec![InputPort {
-                        name: "message".to_string(),
-                    }],
-                    outputs: vec![],
-                },
-                position: Position { x: 300.0, y: 120.0 },
-            },
-        ],
-        edges: vec![Edge {
-            id: "connect test".to_string(),
-            label: "connect".to_string(),
-            source: "1".to_string(),
-            source_handle: "raid".to_string(),
-            target: "2".to_string(),
-            target_handle: "message".to_string(),
-        }],
+#[derive(Debug, Default)]
+pub struct Handles {
+    handles: Vec<async_runtime::JoinHandle<Result<()>>>,
+}
+
+impl Handles {
+    fn push(&mut self, handle: async_runtime::JoinHandle<Result<()>>) {
+        self.handles.push(handle);
     }
+}
+
+impl Drop for Handles {
+    fn drop(&mut self) {
+        for handle in self.handles.drain(..) {
+            handle.abort();
+        }
+    }
+}
+
+struct PipelineState {
+    pipeline: Mutex<Pipeline>,
+    handles: Mutex<Handles>,
+}
+
+impl PipelineState {
+    fn get(&self) -> Pipeline {
+        let Ok(val) = self.pipeline.lock() else {
+            return Pipeline::default()
+        };
+        val.clone()
+    }
+
+    fn set(&self, updated: Pipeline) {
+        let Ok(mut handles) = self.handles.lock() else { return };
+        let Ok(mut pipeline) = self.pipeline.lock() else { return };
+        *handles = create_pipeline(&updated);
+        *pipeline = updated;
+    }
+}
+
+#[tauri::command]
+fn pipeline(state: State<'_, PipelineState>) -> Pipeline {
+    state.get()
+}
+
+#[tauri::command]
+fn update_pipeline(state: State<'_, PipelineState>, updated: Pipeline) {
+    state.set(updated);
 }
 
 fn create_component(name: &str) -> Result<Box<dyn Component + Send>> {
@@ -76,54 +90,18 @@ fn create_component(name: &str) -> Result<Box<dyn Component + Send>> {
     }
 }
 
-fn create_pipeline() {
-    let pipeline = Pipeline {
-        nodes: vec![
-            Node {
-                node_type: "TwitchSubscriber".to_string(),
-                id: "1".to_string(),
-                data: NodeData {
-                    label: "Twitch Subscriber".to_string(),
-                    inputs: vec![],
-                    outputs: vec![OutputPort {
-                        name: "raid".to_string(),
-                    }],
-                },
-                position: Position { x: 20.0, y: 20.0 },
-            },
-            Node {
-                node_type: "TwitchPublisher".to_string(),
-                id: "2".to_string(),
-                data: NodeData {
-                    label: "Twitch Publisher".to_string(),
-                    inputs: vec![InputPort {
-                        name: "message".to_string(),
-                    }],
-                    outputs: vec![],
-                },
-                position: Position { x: 300.0, y: 120.0 },
-            },
-        ],
-        edges: vec![Edge {
-            id: "connect test".to_string(),
-            label: "connect".to_string(),
-            source: "1".to_string(),
-            source_handle: "raid".to_string(),
-            target: "2".to_string(),
-            target_handle: "message".to_string(),
-        }],
-    };
-
+fn create_pipeline(pipeline: &Pipeline) -> Handles {
     let mut components = HashMap::new();
-    for node in pipeline.nodes {
+    for node in &pipeline.nodes {
         if let Ok(component) = create_component(node.node_type.as_str()) {
-            components.insert(node.id, component);
+            components.insert(node.id.clone(), component);
         }
     }
 
-    for edge in pipeline.edges {
+    for edge in &pipeline.edges {
         let res = components.get_many_mut([edge.source.as_str(), edge.target.as_str()]);
         if let Some([source, target]) = res {
+            eprintln!("Connecting {} to {}", edge.source, edge.target);
             Connection::connect(
                 source.as_mut(),
                 target.as_mut(),
@@ -133,22 +111,24 @@ fn create_pipeline() {
         }
     }
 
+    let mut handles = Handles::default();
     for (_, mut component) in components {
-        async_runtime::spawn(async move {
+        eprintln!("Starting {}", component.name());
+        let handle = async_runtime::spawn(async move {
             let res = component.run().await;
             eprintln!("Component {} exited with {:?}", component.name(), res);
             res
         });
+        handles.push(handle);
     }
+    handles
 }
 
 fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
-    create_pipeline();
-
     Builder::default()
-        .invoke_handler(generate_handler![pipeline])
+        .invoke_handler(generate_handler![pipeline, update_pipeline])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {
@@ -156,6 +136,48 @@ fn main() -> Result<()> {
                 event.window().hide().expect("failed to hide window");
                 api.prevent_close();
             }
+        })
+        .setup(|app| {
+            let pipe = Pipeline {
+                nodes: vec![
+                    Node {
+                        node_type: "TwitchSubscriber".to_string(),
+                        id: "1".to_string(),
+                        data: NodeData {
+                            label: "Twitch Subscriber".to_string(),
+                            inputs: vec![],
+                            outputs: vec![OutputPort {
+                                name: "raid".to_string(),
+                            }],
+                        },
+                        position: Position { x: 20.0, y: 20.0 },
+                    },
+                    Node {
+                        node_type: "TwitchPublisher".to_string(),
+                        id: "2".to_string(),
+                        data: NodeData {
+                            label: "Twitch Publisher".to_string(),
+                            inputs: vec![InputPort {
+                                name: "message".to_string(),
+                            }],
+                            outputs: vec![],
+                        },
+                        position: Position { x: 300.0, y: 120.0 },
+                    },
+                ],
+                edges: vec![],
+            };
+
+            let handles = create_pipeline(&pipe);
+
+            let pipeline_state = PipelineState {
+                pipeline: Mutex::new(pipe),
+                handles: Mutex::new(handles),
+            };
+
+            app.manage(pipeline_state);
+
+            Ok(())
         })
         .run(generate_context!())
         .into_diagnostic()

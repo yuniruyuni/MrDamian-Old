@@ -18,12 +18,12 @@ impl Connection {
         }
     }
 
-    pub fn receive(&mut self) -> Result<Packet> {
-        self.input.receive()
+    pub async fn receive(&mut self) -> Option<Packet> {
+        self.input.receive().await
     }
 
-    pub fn send(&mut self, packet: Packet) -> Result<()> {
-        self.outputs.send(packet)
+    pub async fn send(&mut self, packet: Packet) -> Result<()> {
+        self.outputs.send(packet).await
     }
 
     pub fn connect(

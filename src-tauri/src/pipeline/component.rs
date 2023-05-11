@@ -20,11 +20,13 @@ pub trait DefaultComponent: Component {
         self.setup().await?;
 
         loop {
-            let packet = self.connection().receive()?;
+            let Some(packet) = self.connection().receive().await else {
+                return Ok(());
+            };
             let packets = self.handler(packet).await?;
 
             for packet in packets {
-                self.connection().send(packet)?;
+                self.connection().send(packet).await?;
             }
         }
     }
@@ -44,7 +46,7 @@ pub trait PassiveComponent: Component {
         loop {
             let packets = self.handler().await?;
             for packet in packets {
-                self.connection().send(packet)?;
+                self.connection().send(packet).await?;
             }
         }
     }

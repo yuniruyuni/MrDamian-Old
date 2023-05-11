@@ -161,10 +161,12 @@ impl Subscriber {
                     Property::Text(msg.to_broadcaster_user_name.to_string()),
                 );
                 message.insert("viewers".to_string(), Property::I64(msg.viewers));
-                self.conn.send(Packet {
-                    port: "raid".to_string(),
-                    message,
-                })?;
+                self.conn
+                    .send(Packet {
+                        port: "raid".to_string(),
+                        message,
+                    })
+                    .await?;
                 Ok(())
             }
             _ => Ok(()),

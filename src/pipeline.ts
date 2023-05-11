@@ -66,10 +66,15 @@ export function usePipeline() {
     [setEdges],
   );
 
+  const onApply = useCallback(() => {
+    (async () => {
+      await invoke<Pipeline>("update_pipeline", { updated: { nodes, edges } });
+    })()
+  }, [nodes, edges]);
+
   useEffect(() => {
     (async () => {
       const { nodes, edges } = await invoke<Pipeline>("pipeline");
-      console.log(nodes, edges);
       setNodes(nodes);
       setEdges(edges);
     })()
@@ -85,5 +90,6 @@ export function usePipeline() {
     onEdgeUpdate,
     onEdgeUpdateEnd,
     onConnect,
+    onApply,
   };
 }

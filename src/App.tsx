@@ -9,9 +9,10 @@ import 'reactflow/dist/style.css';
 import { usePipeline } from "./pipeline";
 
 function App() {
-  const pipeline = usePipeline();
+  const { onApply, ...pipeline } = usePipeline();
   return (
     <div className="container">
+      <button title="apply" onClick={onApply} />
       <ReactFlow {...pipeline} >
         <MiniMap />
         <Controls />

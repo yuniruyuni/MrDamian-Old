@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use miette::{IntoDiagnostic, Result};
 
@@ -15,7 +15,7 @@ pub struct InputPort {
 
 impl InputPort {
     pub fn new() -> InputPort {
-        let (base_sender, receiver) = channel::<Packet>();
+        let (base_sender, receiver) = channel::<Packet>(32);
         Self {
             base_sender,
             receiver,
@@ -29,8 +29,8 @@ impl InputPort {
         }
     }
 
-    pub fn receive(&self) -> Result<Packet> {
-        self.receiver.recv().into_diagnostic()
+    pub async fn receive(&mut self) -> Option<Packet> {
+        self.receiver.recv().await
     }
 }
 
@@ -41,12 +41,12 @@ pub struct OutputPort {
 }
 
 impl OutputPort {
-    pub fn send(&self, message: Message) -> Result<()> {
+    pub async fn send(&self, message: Message) -> Result<()> {
         let packet = Packet {
             port: self.dest.clone(),
             message,
         };
-        self.sender.send(packet).into_diagnostic()
+        self.sender.send(packet).await.into_diagnostic()
     }
 }
 
@@ -63,13 +63,13 @@ impl OutputPorts {
             .push(port);
     }
 
-    pub fn send(&self, packet: Packet) -> Result<()> {
+    pub async fn send(&self, packet: Packet) -> Result<()> {
         let port = self
             .ports
             .get(&packet.port)
             .ok_or_else(|| MrDamianError::PortNotFound(packet.port.clone()))?;
         for p in port {
-            p.send(packet.message.clone())?;
+            p.send(packet.message.clone()).await?;
         }
         Ok(())
     }
