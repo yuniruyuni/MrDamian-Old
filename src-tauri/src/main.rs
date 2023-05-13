@@ -8,39 +8,17 @@ mod protocol;
 mod tray;
 mod twitch;
 
-use hashbrown::HashMap;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::sync::Mutex;
 
 use tauri::{
-    async_runtime, generate_context, generate_handler, Builder, Manager, State, SystemTray,
+    generate_context, generate_handler, Builder, Manager, State, SystemTray,
     WindowEvent,
 };
 
-use pipeline::{Component, Connection};
-use protocol::{Pipeline, Component as ProtocolComponent, InputPort, OutputPort};
-use twitch::{Publisher, Subscriber};
+use pipeline::{create_pipeline, Handles};
+use protocol::{Pipeline, Component, InputPort, OutputPort};
 
-use error::MrDamianError;
-
-#[derive(Debug, Default)]
-pub struct Handles {
-    handles: Vec<async_runtime::JoinHandle<Result<()>>>,
-}
-
-impl Handles {
-    fn push(&mut self, handle: async_runtime::JoinHandle<Result<()>>) {
-        self.handles.push(handle);
-    }
-}
-
-impl Drop for Handles {
-    fn drop(&mut self) {
-        for handle in self.handles.drain(..) {
-            handle.abort();
-        }
-    }
-}
 
 struct PipelineState {
     pipeline: Mutex<Pipeline>,
@@ -75,63 +53,11 @@ fn update_pipeline(state: State<'_, PipelineState>, updated: Pipeline) {
     state.set(updated);
 }
 
-fn create_component(name: &str) -> Result<Box<dyn Component + Send>> {
-    let config = config::Config::load_envs()?;
-    match name {
-        "TwitchSubscriber" => Ok(Box::new(Subscriber::new(
-            &config.bot,
-            &config.channel,
-            &config.token,
-        ))),
-        "TwitchPublisher" => Ok(Box::new(Publisher::new(
-            &config.bot,
-            &config.channel,
-            &config.token,
-        ))),
-        _ => Err(MrDamianError::InvalidComponent).into_diagnostic(),
-    }
-}
-
-fn create_pipeline(pipeline: &Pipeline) -> Handles {
-    let mut components = HashMap::new();
-    for node in &pipeline.nodes {
-        if let Ok(component) = create_component(node.node_type.as_str()) {
-            components.insert(node.id.clone(), component);
-        }
-    }
-
-    for edge in &pipeline.edges {
-        let res = components.get_many_mut([edge.source.as_str(), edge.target.as_str()]);
-        if let Some([source, target]) = res {
-            eprintln!("Connecting {} to {}", edge.source, edge.target);
-            Connection::connect(
-                source.as_mut(),
-                target.as_mut(),
-                edge.source_handle.as_str(),
-                edge.target_handle.as_str(),
-            );
-        }
-    }
-
-    let mut handles = Handles::default();
-    for (_, mut component) in components {
-        eprintln!("Starting {}", component.name());
-        let handle = async_runtime::spawn(async move {
-            let res = component.run().await;
-            eprintln!("Component {} exited with {:?}", component.name(), res);
-            res
-        });
-        handles.push(handle);
-    }
-    handles
-}
-
-
 #[tauri::command]
 #[specta::specta]
-fn components() -> Vec<ProtocolComponent> {
+fn components() -> Vec<Component> {
     vec![
-        ProtocolComponent{
+        Component{
             component_type: "TwitchSubscriber".to_string(),
             label: "Twitch Subscriber".to_string(),
             inputs: vec![],
@@ -139,7 +65,7 @@ fn components() -> Vec<ProtocolComponent> {
                 OutputPort{name: "raid".to_string()},
             ],
         },
-        ProtocolComponent{
+        Component{
             component_type: "TwitchPublisher".to_string(),
             label: "Twitch Publisher".to_string(),
             inputs: vec![
