@@ -6,18 +6,20 @@ import ReactFlow, {
 
 import 'reactflow/dist/style.css';
 
+import { Button } from 'semantic-ui-react';
+
 import { usePipeline } from "./pipeline";
 
 function App() {
   const { onApply, ...pipeline } = usePipeline();
   return (
     <div className="container">
-      <button title="apply" onClick={onApply} />
       <ReactFlow {...pipeline} >
         <MiniMap />
         <Controls />
         <Background />
       </ReactFlow>
+      <Button onClick={onApply} primary>Apply</Button>
     </div>
   );
 }
