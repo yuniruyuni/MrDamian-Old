@@ -159,3 +159,29 @@ impl DefaultComponent for Publisher {
         Ok(vec![])
     }
 }
+
+use crate::pipeline::Constructor;
+use crate::protocol::{InputPort, OutputPort};
+
+#[derive(Debug, Default, Clone)]
+pub struct PublisherFactory {}
+
+impl Constructor for PublisherFactory {
+    fn component_type(&self) -> String {
+        "TwitchPublisher".to_string()
+    }
+    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send> {
+        Box::new(Publisher::new(&config.bot, &config.channel, &config.token))
+    }
+    fn label(&self) -> String {
+        "Twitch Publisher".to_string()
+    }
+    fn inputs(&self) -> Vec<InputPort> {
+        vec![InputPort {
+            name: "raid".to_string(),
+        }]
+    }
+    fn outputs(&self) -> Vec<OutputPort> {
+        vec![]
+    }
+}

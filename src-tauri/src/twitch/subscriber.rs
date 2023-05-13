@@ -224,3 +224,29 @@ impl PassiveComponent for Subscriber {
         Ok(vec![])
     }
 }
+
+use crate::pipeline::Constructor;
+use crate::protocol::{InputPort, OutputPort};
+
+#[derive(Debug, Default, Clone)]
+pub struct SubscriberFactory {}
+
+impl Constructor for SubscriberFactory {
+    fn component_type(&self) -> String {
+        "TwitchSubscriber".to_string()
+    }
+    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send> {
+        Box::new(Subscriber::new(&config.bot, &config.channel, &config.token))
+    }
+    fn label(&self) -> String {
+        "Twitch Subscriber".to_string()
+    }
+    fn inputs(&self) -> Vec<InputPort> {
+        vec![]
+    }
+    fn outputs(&self) -> Vec<OutputPort> {
+        vec![OutputPort {
+            name: "message".to_string(),
+        }]
+    }
+}

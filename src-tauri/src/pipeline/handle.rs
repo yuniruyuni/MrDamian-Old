@@ -1,4 +1,3 @@
-
 #[derive(Debug, Default)]
 pub struct Handles {
     handles: Vec<tauri::async_runtime::JoinHandle<miette::Result<()>>>,

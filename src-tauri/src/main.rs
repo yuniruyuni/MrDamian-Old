@@ -11,14 +11,17 @@ mod twitch;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::sync::Mutex;
 
-use tauri::{
-    generate_context, generate_handler, Builder, Manager, State, SystemTray,
-    WindowEvent,
-};
+use tauri::{generate_context, generate_handler, Builder, Manager, State, SystemTray, WindowEvent};
 
-use pipeline::{create_pipeline, Handles};
-use protocol::{Pipeline, Component, InputPort, OutputPort};
+use pipeline::{Factories, Handles};
+use protocol::{Component, Pipeline};
 
+fn factories() -> Factories {
+    Factories::new(vec![
+        Box::<twitch::SubscriberFactory>::default(),
+        Box::<twitch::PublisherFactory>::default(),
+    ])
+}
 
 struct PipelineState {
     pipeline: Mutex<Pipeline>,
@@ -36,7 +39,7 @@ impl PipelineState {
     fn set(&self, updated: Pipeline) {
         let Ok(mut handles) = self.handles.lock() else { return };
         let Ok(mut pipeline) = self.pipeline.lock() else { return };
-        *handles = create_pipeline(&updated);
+        *handles = factories().create_pipeline(&updated);
         *pipeline = updated;
     }
 }
@@ -56,32 +59,15 @@ fn update_pipeline(state: State<'_, PipelineState>, updated: Pipeline) {
 #[tauri::command]
 #[specta::specta]
 fn components() -> Vec<Component> {
-    vec![
-        Component{
-            component_type: "TwitchSubscriber".to_string(),
-            label: "Twitch Subscriber".to_string(),
-            inputs: vec![],
-            outputs: vec![
-                OutputPort{name: "raid".to_string()},
-            ],
-        },
-        Component{
-            component_type: "TwitchPublisher".to_string(),
-            label: "Twitch Publisher".to_string(),
-            inputs: vec![
-                InputPort{name: "message".to_string()},
-            ],
-            outputs: vec![],
-        }
-    ]
+    factories().components()
 }
 
 fn gen_bindings() {
-    tauri_specta::ts::export(specta::collect_types![
-        pipeline,
-        update_pipeline,
-        components,
-    ], "../src/bindings.ts").unwrap();
+    tauri_specta::ts::export(
+        specta::collect_types![pipeline, update_pipeline, components,],
+        "../src/bindings.ts",
+    )
+    .unwrap();
 }
 
 fn main() -> Result<()> {
@@ -102,8 +88,7 @@ fn main() -> Result<()> {
         })
         .setup(|app| {
             let pipe = Pipeline::default();
-
-            let handles = create_pipeline(&pipe);
+            let handles = factories().create_pipeline(&pipe);
 
             let pipeline_state = PipelineState {
                 pipeline: Mutex::new(pipe),
@@ -119,7 +104,6 @@ fn main() -> Result<()> {
         .context("error while running tauri application")?;
     Ok(())
 }
-
 
 #[cfg(test)]
 mod test {

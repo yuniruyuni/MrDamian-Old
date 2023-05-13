@@ -58,4 +58,3 @@ pub struct Component {
     pub inputs: Vec<InputPort>,
     pub outputs: Vec<OutputPort>,
 }
-

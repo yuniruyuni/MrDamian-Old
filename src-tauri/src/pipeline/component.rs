@@ -3,6 +3,17 @@ use async_trait::async_trait;
 use crate::pipeline::{Connection, Packet};
 use miette::Result;
 
+use crate::protocol::{InputPort, OutputPort};
+
+pub trait Constructor {
+    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send>;
+
+    fn component_type(&self) -> String;
+    fn label(&self) -> String;
+    fn inputs(&self) -> Vec<InputPort>;
+    fn outputs(&self) -> Vec<OutputPort>;
+}
+
 #[async_trait]
 pub trait Component {
     fn name(&self) -> String;
