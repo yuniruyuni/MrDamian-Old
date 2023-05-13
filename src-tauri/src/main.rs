@@ -64,11 +64,13 @@ impl PipelineState {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn pipeline(state: State<'_, PipelineState>) -> Pipeline {
     state.get()
 }
 
 #[tauri::command]
+#[specta::specta]
 fn update_pipeline(state: State<'_, PipelineState>, updated: Pipeline) {
     state.set(updated);
 }
@@ -124,7 +126,14 @@ fn create_pipeline(pipeline: &Pipeline) -> Handles {
     handles
 }
 
+fn gen_bindings() {
+    tauri_specta::ts::export(specta::collect_types![pipeline, update_pipeline], "../src/bindings.ts").unwrap();
+}
+
 fn main() -> Result<()> {
+    #[cfg(debug_assertions)]
+    gen_bindings();
+
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
     Builder::default()
@@ -183,4 +192,13 @@ fn main() -> Result<()> {
         .into_diagnostic()
         .context("error while running tauri application")?;
     Ok(())
+}
+
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn export_bindings() {
+        super::gen_bindings();
+    }
 }

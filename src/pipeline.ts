@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { updatePipeline, pipeline, Node, Edge } from "./bindings";
 
 import type { Node as RFNode, Edge as RFEdge, Connection, HandleType } from 'reactflow';
 
@@ -11,31 +12,6 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
-
-export type Pipeline = {
-  nodes: Node[],
-  edges: Edge[],
-};
-
-export type Node = RFNode<NodeData>;
-
-export type InputPort = {
-  name: string,
-};
-
-export type OutputPort = {
-  name: string,
-};
-
-export type NodeData = {
-  label: string,
-  inputs: InputPort[],
-  outputs: OutputPort[],
-};
-
-export type Edge = RFEdge<EdgeData>;
-
-export type EdgeData = {};
 
 export function usePipeline() {
   const edgeUpdateSuccessful = useRef(true);
@@ -50,11 +26,11 @@ export function usePipeline() {
   const onEdgeUpdateStart = useCallback(() => {
     edgeUpdateSuccessful.current = false;
   }, []);
-  const onEdgeUpdate = useCallback((oldEdge: Edge, newConnection: Connection) => {
+  const onEdgeUpdate = useCallback((oldEdge: RFEdge, newConnection: Connection) => {
     edgeUpdateSuccessful.current = true;
     setEdges((edges) => updateEdge(oldEdge, newConnection, edges));
   }, []);
-  const onEdgeUpdateEnd = useCallback((_event: MouseEvent | TouchEvent, target: Edge, _handle: HandleType) => {
+  const onEdgeUpdateEnd = useCallback((_event: MouseEvent | TouchEvent, target: RFEdge, _handle: HandleType) => {
     if (!edgeUpdateSuccessful.current) {
       setEdges((edges) => edges.filter((e) => e.id !== target.id));
     }
@@ -68,13 +44,24 @@ export function usePipeline() {
 
   const onApply = useCallback(() => {
     (async () => {
-      await invoke<Pipeline>("update_pipeline", { updated: { nodes, edges } });
+      const rnodes: Node[] = nodes.map((node) => ({
+        ...node,
+        type: node.type??'',
+      }));
+      const redges: Edge[] = edges.map((edge) => ({
+        ...edge,
+        label: edge.label?.toString()??'',
+        sourceHandle: edge.sourceHandle??'',
+        targetHandle: edge.targetHandle??'',
+      }));
+
+      await updatePipeline({ nodes: rnodes, edges: redges });
     })()
   }, [nodes, edges]);
 
   useEffect(() => {
     (async () => {
-      const { nodes, edges } = await invoke<Pipeline>("pipeline");
+      const { nodes, edges } = await pipeline();
       setNodes(nodes);
       setEdges(edges);
     })()

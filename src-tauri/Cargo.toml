@@ -30,6 +30,8 @@ futures = "0.3.28"
 async-trait = "0.1.68"
 hashbrown = "0.13.2"
 
+specta = "1.0.4"
+tauri-specta = { version = "1.0.0", features = ["javascript", "typescript"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
