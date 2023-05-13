@@ -147,35 +147,7 @@ fn main() -> Result<()> {
             }
         })
         .setup(|app| {
-            let pipe = Pipeline {
-                nodes: vec![
-                    Node {
-                        node_type: "TwitchSubscriber".to_string(),
-                        id: "1".to_string(),
-                        data: NodeData {
-                            label: "Twitch Subscriber".to_string(),
-                            inputs: vec![],
-                            outputs: vec![OutputPort {
-                                name: "raid".to_string(),
-                            }],
-                        },
-                        position: Position { x: 20.0, y: 20.0 },
-                    },
-                    Node {
-                        node_type: "TwitchPublisher".to_string(),
-                        id: "2".to_string(),
-                        data: NodeData {
-                            label: "Twitch Publisher".to_string(),
-                            inputs: vec![InputPort {
-                                name: "message".to_string(),
-                            }],
-                            outputs: vec![],
-                        },
-                        position: Position { x: 300.0, y: 120.0 },
-                    },
-                ],
-                edges: vec![],
-            };
+            let pipe = Pipeline::default();
 
             let handles = create_pipeline(&pipe);
 

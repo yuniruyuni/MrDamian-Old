@@ -59,6 +59,10 @@ export function usePipeline() {
     })()
   }, [nodes, edges]);
 
+  const addNode = useCallback((node: Node) => {
+    setNodes((nodes) => [...nodes, node]);
+  }, [setNodes]);
+
   useEffect(() => {
     (async () => {
       const { nodes, edges } = await pipeline();
@@ -78,5 +82,6 @@ export function usePipeline() {
     onEdgeUpdateEnd,
     onConnect,
     onApply,
+    addNode,
   };
 }
