@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -10,7 +10,7 @@ import 'reactflow/dist/style.css';
 import { Button, Dropdown, Portal, Segment } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
-import { Node } from './bindings';
+import { Node, Component, components } from './bindings';
 
 type Menu = {
   open: boolean;
@@ -22,31 +22,14 @@ function App() {
   const { onApply, addNode, ...pipeline } = usePipeline();
 
   const [ menu, setMenu ] = useState<Menu>({open: false, x: 0, y: 0});
+  const [ comps, setComps ] = useState<Component[]>([]);
 
-  type Component = {name: string, construct: () => Omit<Node, 'id' | 'position'>};
-
-  const components: Component[] = useMemo(() => [
-    {name: 'Twitch Subscriber', construct: () =>  ({
-      type: 'TwitchSubscriber',
-      data: {
-        label: 'Twitch Subscriber',
-        inputs: [],
-        outputs: [
-          {name: 'raid'},
-        ],
-      }
-    })},
-    {name: 'Twitch Publisher', construct: () => ({
-      type: 'TwitchPublisher',
-      data: {
-        label: 'Twitch Publisher',
-        inputs: [
-          {name: 'message'},
-        ],
-        outputs: [],
-      }
-    })},
-  ], []);
+  useEffect(() => {
+   (async () => {
+      const comps = await components();
+      setComps(comps);
+   })()
+  }, [setComps]);
 
   const onMenuClose = useCallback(() => { setMenu({open: false, x: 0, y: 0}) }, [setMenu]);
 
@@ -65,16 +48,21 @@ function App() {
         {/* TODO: avoid ad-hock mouse position fixing. */}
         <Segment style={{position: 'absolute', left: menu.x - 8, top: menu.y - 16}}>
           <Dropdown.Menu visible={menu.open}>
-            {components.map(({name, construct}) => (
+            {comps.map(({type, label, inputs, outputs}) => (
               <Dropdown.Item onClick={() => {
                 const node: Node = {
-                  ...construct(),
+                  type,
                   id: `${Math.random()}`,
                   position: { x: menu.x - 8, y: menu.y - 16 },
+                  data: {
+                    label,
+                    inputs: inputs,
+                    outputs: outputs,
+                  },
                 };
                 addNode(node);
                 setMenu({open: false, x: 0, y: 0});
-              }}>{name}</Dropdown.Item>
+              }}>{label}</Dropdown.Item>
             ))}
           </Dropdown.Menu>
         </Segment>

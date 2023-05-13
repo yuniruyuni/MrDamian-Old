@@ -18,7 +18,7 @@ use tauri::{
 };
 
 use pipeline::{Component, Connection};
-use protocol::{InputPort, Node, NodeData, OutputPort, Pipeline, Position};
+use protocol::{Pipeline, Component as ProtocolComponent, InputPort, OutputPort};
 use twitch::{Publisher, Subscriber};
 
 use error::MrDamianError;
@@ -126,8 +126,36 @@ fn create_pipeline(pipeline: &Pipeline) -> Handles {
     handles
 }
 
+
+#[tauri::command]
+#[specta::specta]
+fn components() -> Vec<ProtocolComponent> {
+    vec![
+        ProtocolComponent{
+            component_type: "TwitchSubscriber".to_string(),
+            label: "Twitch Subscriber".to_string(),
+            inputs: vec![],
+            outputs: vec![
+                OutputPort{name: "raid".to_string()},
+            ],
+        },
+        ProtocolComponent{
+            component_type: "TwitchPublisher".to_string(),
+            label: "Twitch Publisher".to_string(),
+            inputs: vec![
+                InputPort{name: "message".to_string()},
+            ],
+            outputs: vec![],
+        }
+    ]
+}
+
 fn gen_bindings() {
-    tauri_specta::ts::export(specta::collect_types![pipeline, update_pipeline], "../src/bindings.ts").unwrap();
+    tauri_specta::ts::export(specta::collect_types![
+        pipeline,
+        update_pipeline,
+        components,
+    ], "../src/bindings.ts").unwrap();
 }
 
 fn main() -> Result<()> {
@@ -137,7 +165,7 @@ fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
     Builder::default()
-        .invoke_handler(generate_handler![pipeline, update_pipeline])
+        .invoke_handler(generate_handler![pipeline, update_pipeline, components])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {

@@ -49,3 +49,13 @@ pub struct Edge {
     #[serde(rename = "targetHandle")]
     pub target_handle: String,
 }
+
+#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Component {
+    #[serde(rename = "type")]
+    pub component_type: String,
+    pub label: String,
+    pub inputs: Vec<InputPort>,
+    pub outputs: Vec<OutputPort>,
+}
+

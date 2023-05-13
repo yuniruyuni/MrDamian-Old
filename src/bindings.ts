@@ -16,7 +16,12 @@ export function updatePipeline(updated: Pipeline) {
     return invoke<null>("update_pipeline", { updated })
 }
 
+export function components() {
+    return invoke<Component[]>("components")
+}
+
 export type OutputPort = { name: string }
+export type Component = { type: string; label: string; inputs: InputPort[]; outputs: OutputPort[] }
 export type Node = { type: string; id: string; data: NodeData; position: Position }
 export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
 export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string }
