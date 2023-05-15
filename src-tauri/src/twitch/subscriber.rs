@@ -246,7 +246,7 @@ impl Constructor for SubscriberFactory {
     }
     fn outputs(&self) -> Vec<OutputPort> {
         vec![OutputPort {
-            name: "message".to_string(),
+            name: "raid".to_string(),
         }]
     }
 }

@@ -178,7 +178,7 @@ impl Constructor for PublisherFactory {
     }
     fn inputs(&self) -> Vec<InputPort> {
         vec![InputPort {
-            name: "raid".to_string(),
+            name: "message".to_string(),
         }]
     }
     fn outputs(&self) -> Vec<OutputPort> {
