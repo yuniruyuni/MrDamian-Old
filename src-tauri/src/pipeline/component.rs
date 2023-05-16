@@ -1,22 +1,24 @@
 use async_trait::async_trait;
 
 use crate::pipeline::{Connection, Packet};
+use crate::protocol::{InputPort, OutputPort};
 use miette::Result;
 
-use crate::protocol::{InputPort, OutputPort};
+pub type Generator = dyn Fn(&crate::config::Config) -> Box<dyn Component + Send>;
 
-pub trait Constructor {
-    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send>;
-
-    fn component_type(&self) -> String;
-    fn label(&self) -> String;
-    fn inputs(&self) -> Vec<InputPort>;
-    fn outputs(&self) -> Vec<OutputPort>;
+pub struct Constructor {
+    pub kind: &'static str,
+    pub label: &'static str,
+    pub gen: Box<Generator>,
 }
 
 #[async_trait]
 pub trait Component {
-    fn name(&self) -> String;
+    fn kind(&self) -> &'static str;
+    fn label(&self) -> String;
+    fn inputs(&self) -> Vec<InputPort>;
+    fn outputs(&self) -> Vec<OutputPort>;
+
     fn connection(&mut self) -> &mut Connection;
     async fn run(&mut self) -> Result<()>;
 }

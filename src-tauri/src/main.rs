@@ -11,15 +11,17 @@ mod twitch;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::sync::Mutex;
 
-use tauri::{generate_context, generate_handler, Builder, Manager, State, SystemTray, WindowEvent, AppHandle};
+use tauri::{
+    generate_context, generate_handler, AppHandle, Builder, Manager, State, SystemTray, WindowEvent,
+};
 
 use pipeline::{Factories, Handles};
 use protocol::{Component, Pipeline, PIPELINE_UPDATED};
 
 fn factories() -> Factories {
     Factories::new(vec![
-        Box::<twitch::SubscriberFactory>::default(),
-        Box::<twitch::PublisherFactory>::default(),
+        twitch::Publisher::constructor(),
+        twitch::Subscriber::constructor(),
     ])
 }
 
@@ -42,6 +44,18 @@ impl PipelineState {
         *handles = factories().create_pipeline(&updated);
         *pipeline = updated;
     }
+
+    fn create_component(&self, component: String, position: protocol::Position) {
+        let mut pipeline = self.get();
+        let id = pipeline.next_id();
+        pipeline.nodes.push(protocol::Node {
+            id,
+            node_type: component,
+            position,
+            data: Default::default(),
+        });
+        self.set(pipeline);
+    }
 }
 
 #[tauri::command]
@@ -53,8 +67,13 @@ fn pipeline(state: State<'_, PipelineState>) -> Pipeline {
 #[tauri::command]
 #[specta::specta]
 #[allow(unused_variables)]
-fn create_component(app: AppHandle, state: State<'_, PipelineState>, component: String, position: protocol::Position){
-    // TODO: state.create_component(component, position);
+fn create_component(
+    app: AppHandle,
+    state: State<'_, PipelineState>,
+    component: String,
+    position: protocol::Position,
+) {
+    state.create_component(component, position);
     app.emit_all(PIPELINE_UPDATED, "create_component").unwrap();
 }
 
@@ -73,7 +92,7 @@ fn components() -> Vec<Component> {
 
 fn gen_bindings() {
     tauri_specta::ts::export(
-        specta::collect_types![pipeline, update_pipeline, components,],
+        specta::collect_types![pipeline, update_pipeline, components, create_component],
         "../src/bindings.ts",
     )
     .unwrap();
@@ -86,7 +105,12 @@ fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
     Builder::default()
-        .invoke_handler(generate_handler![pipeline, update_pipeline, components, create_component])
+        .invoke_handler(generate_handler![
+            pipeline,
+            update_pipeline,
+            components,
+            create_component
+        ])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {

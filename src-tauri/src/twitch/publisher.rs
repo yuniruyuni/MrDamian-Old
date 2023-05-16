@@ -10,7 +10,8 @@ use miette::{miette, IntoDiagnostic, Result};
 
 use crate::{
     error::MrDamianError,
-    pipeline::{Component, Connection, DefaultComponent, Packet, Property},
+    pipeline::{Component, Connection, Constructor, DefaultComponent, Packet, Property},
+    protocol::{Assign, InputPort, OutputPort},
 };
 
 pub struct Publisher {
@@ -28,6 +29,18 @@ pub struct Publisher {
 }
 
 impl Publisher {
+    pub fn constructor() -> Constructor {
+        Constructor {
+            kind: "TwitchPublisher",
+            label: "Twitch Publisher",
+            gen: Box::new(
+                |config: &crate::config::Config| -> Box<dyn Component + Send> {
+                    Box::new(Publisher::new(&config.bot, &config.channel, &config.token))
+                },
+            ),
+        }
+    }
+
     pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
 
@@ -86,8 +99,28 @@ impl Publisher {
 
 #[async_trait]
 impl Component for Publisher {
-    fn name(&self) -> String {
-        "TwitchPublisher".to_string()
+    fn kind(&self) -> &'static str {
+        "TwitchPublisher"
+    }
+    fn label(&self) -> String {
+        "Twitch Publisher".to_string()
+    }
+
+    fn inputs(&self) -> Vec<InputPort> {
+        vec![InputPort {
+            name: "message".to_string(),
+            assign: {
+                let mut h = Assign::new();
+                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("viewers".to_string(), "".to_string());
+                h
+            },
+        }]
+    }
+
+    fn outputs(&self) -> Vec<OutputPort> {
+        vec![]
     }
 
     fn connection(&mut self) -> &mut Connection {
@@ -157,38 +190,5 @@ impl DefaultComponent for Publisher {
         self.send_notification(&message).await?;
         self.send_shoutout(&fid).await?;
         Ok(vec![])
-    }
-}
-
-use crate::pipeline::Constructor;
-use crate::protocol::{Assign, InputPort, OutputPort};
-
-#[derive(Debug, Default, Clone)]
-pub struct PublisherFactory {}
-
-impl Constructor for PublisherFactory {
-    fn component_type(&self) -> String {
-        "TwitchPublisher".to_string()
-    }
-    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send> {
-        Box::new(Publisher::new(&config.bot, &config.channel, &config.token))
-    }
-    fn label(&self) -> String {
-        "Twitch Publisher".to_string()
-    }
-    fn inputs(&self) -> Vec<InputPort> {
-        vec![InputPort {
-            name: "message".to_string(),
-            assign: {
-                let mut h = Assign::new();
-                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("viewers".to_string(), "".to_string());
-                h
-            },
-        }]
-    }
-    fn outputs(&self) -> Vec<OutputPort> {
-        vec![]
     }
 }

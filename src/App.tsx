@@ -11,7 +11,7 @@ import { Button, Segment, Sidebar, Form, Label } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
 
-import { Node, InputPort, OutputPort } from './bindings';
+import { Node, InputPort, OutputPort, Position, createComponent } from './bindings';
 import { ContextMenu } from "./ContextMenu";
 
 export type ContextMenuState = {
@@ -29,7 +29,7 @@ type SidebarState = {
 
 function App() {
   const [ sidebar, setSidebar ] = useState<SidebarState>({open: false});
-  const { onApply, addNode, ...pipeline } = usePipeline(
+  const { onApply, ...pipeline } = usePipeline(
     (node: Node, input: InputPort) => { setSidebar({open: true, input, node }); },
     (node: Node, output: OutputPort) => { setSidebar({open: true, output, node }); },
   );
@@ -37,7 +37,9 @@ function App() {
   const [ menu, setMenu ] = useState<ContextMenuState>({open: false, x: 0, y: 0});
   const onPaneContextMenu = useCallback((e: React.MouseEvent) => { setMenu({open: true, x: e.clientX, y: e.clientY}); }, [setMenu]);
   const onMenuClose = useCallback(() => { setMenu({open: false, x: 0, y: 0}) }, [setMenu]);
-  const onMenuClick = useCallback((node: Node) => { addNode(node); }, [setMenu]);
+  const onMenuClick = useCallback(async (type: string, pos: Position) => {
+    await createComponent(type, pos);
+  }, [setMenu]);
 
   const inputAssign = sidebar.input?.assign;
   const outputAssign = sidebar.output?.assign;

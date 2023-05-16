@@ -6,6 +6,12 @@ pub struct Pipeline {
     pub edges: Vec<Edge>,
 }
 
+impl Pipeline {
+    pub fn next_id(&self) -> String {
+        ulid::Ulid::new().to_string()
+    }
+}
+
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Node {
     #[serde(rename = "type")]
@@ -56,11 +62,8 @@ pub struct Edge {
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Component {
-    #[serde(rename = "type")]
-    pub component_type: String,
+    pub kind: String,
     pub label: String,
-    pub inputs: Vec<InputPort>,
-    pub outputs: Vec<OutputPort>,
 }
 
 pub const PIPELINE_UPDATED: &str = "pipeline-updated";

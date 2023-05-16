@@ -8,7 +8,7 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
-import { updatePipeline, pipeline, Node, Edge, InputPort, OutputPort } from './bindings';
+import { updatePipeline, createComponent, pipeline, Node, Edge, InputPort, OutputPort } from './bindings';
 
 import { listen, EventName, EventCallback } from '@tauri-apps/api/event'
 
@@ -85,13 +85,8 @@ export function usePipeline(
     }
   });
 
-  const addNode = useCallback((node: Node) => {
-    setNodes((nodes) => [...nodes, extendNode(node)]);
-  }, [setNodes]);
-
   useListen('pipeline-updated', () => {
     (async () => {
-      console.log("pipeline-updated");
       const { nodes, edges } = await pipeline();
       const nodesWithEvents = nodes.map((node) => extendNode(node));
       setNodes(nodesWithEvents);
@@ -110,6 +105,5 @@ export function usePipeline(
     onEdgeUpdateEnd,
     onConnect,
     onApply,
-    addNode,
   };
 }

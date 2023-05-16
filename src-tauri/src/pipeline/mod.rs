@@ -16,20 +16,20 @@ use crate::protocol::Pipeline;
 use hashbrown::HashMap;
 use miette::{IntoDiagnostic, Result};
 
-pub struct Factories(HashMap<String, Box<dyn Constructor + Sync>>);
+pub struct Factories(HashMap<&'static str, Constructor>);
 
 impl Factories {
-    pub fn new(cs: Vec<Box<dyn Constructor + Sync>>) -> Self {
+    pub fn new(cs: Vec<Constructor>) -> Self {
         let mut map = HashMap::new();
         for c in cs {
-            map.insert(c.component_type(), c);
+            map.insert(c.kind, c);
         }
         Self(map)
     }
 
-    fn create_component(&self, name: &str) -> Result<Box<dyn Component + Send>> {
-        if let Some(constructor) = self.0.get(name) {
-            Ok(constructor.construct(&crate::config::Config::load_envs()?))
+    fn create_component(&self, kind: &str) -> Result<Box<dyn Component + Send>> {
+        if let Some(c) = self.0.get(kind) {
+            Ok((c.gen)(&crate::config::Config::load_envs()?))
         } else {
             Err(MrDamianError::InvalidComponent).into_diagnostic()
         }
@@ -58,10 +58,10 @@ impl Factories {
 
         let mut handles = Handles::default();
         for (_, mut component) in components {
-            eprintln!("Starting {}", component.name());
+            eprintln!("Starting {}", component.kind());
             let handle = tauri::async_runtime::spawn(async move {
                 let res = component.run().await;
-                eprintln!("Component {} exited with {:?}", component.name(), res);
+                eprintln!("Component {} exited with {:?}", component.kind(), res);
                 res
             });
             handles.push(handle);
@@ -71,12 +71,10 @@ impl Factories {
 
     pub fn components(&self) -> Vec<crate::protocol::Component> {
         let mut res = vec![];
-        for (t, c) in &self.0 {
+        for (_, c) in &self.0 {
             res.push(crate::protocol::Component {
-                component_type: t.clone(),
-                label: c.label(),
-                inputs: c.inputs(),
-                outputs: c.outputs(),
+                kind: c.kind.to_string(),
+                label: c.label.to_string(),
             });
         }
         res

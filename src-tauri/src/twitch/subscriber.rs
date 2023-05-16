@@ -13,7 +13,10 @@ use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 use crate::error::MrDamianError;
-use crate::pipeline::{Component, Connection, Message, Packet, PassiveComponent, Property};
+use crate::pipeline::{
+    Component, Connection, Constructor, Message, Packet, PassiveComponent, Property,
+};
+use crate::protocol::{Assign, InputPort, OutputPort};
 
 type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
@@ -38,6 +41,18 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
+    pub fn constructor() -> Constructor {
+        Constructor {
+            kind: "TwitchSubscriber",
+            label: "Twitch Subscriber",
+            gen: Box::new(
+                |config: &crate::config::Config| -> Box<dyn Component + Send> {
+                    Box::new(Subscriber::new(&config.bot, &config.channel, &config.token))
+                },
+            ),
+        }
+    }
+
     pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
 
@@ -176,8 +191,12 @@ impl Subscriber {
 
 #[async_trait]
 impl Component for Subscriber {
-    fn name(&self) -> String {
-        "TwitchSubscriber".to_string()
+    fn kind(&self) -> &'static str {
+        "TwitchSubscriber"
+    }
+
+    fn label(&self) -> String {
+        "Twitch Subscriber".to_string()
     }
 
     fn connection(&mut self) -> &mut Connection {
@@ -186,6 +205,27 @@ impl Component for Subscriber {
 
     async fn run(&mut self) -> Result<()> {
         self.default_run().await
+    }
+
+    fn inputs(&self) -> Vec<InputPort> {
+        vec![]
+    }
+
+    fn outputs(&self) -> Vec<OutputPort> {
+        vec![OutputPort {
+            name: "raid".to_string(),
+            assign: {
+                let mut h = Assign::new();
+                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_name".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_name".to_string(), "".to_string());
+                h.insert("viewers".to_string(), "".to_string());
+                h
+            },
+        }]
     }
 }
 
@@ -222,42 +262,5 @@ impl PassiveComponent for Subscriber {
             _ => (),
         }
         Ok(vec![])
-    }
-}
-
-use crate::pipeline::Constructor;
-use crate::protocol::{Assign, InputPort, OutputPort};
-
-#[derive(Debug, Default, Clone)]
-pub struct SubscriberFactory {}
-
-impl Constructor for SubscriberFactory {
-    fn component_type(&self) -> String {
-        "TwitchSubscriber".to_string()
-    }
-    fn construct(&self, config: &crate::config::Config) -> Box<dyn Component + Send> {
-        Box::new(Subscriber::new(&config.bot, &config.channel, &config.token))
-    }
-    fn label(&self) -> String {
-        "Twitch Subscriber".to_string()
-    }
-    fn inputs(&self) -> Vec<InputPort> {
-        vec![]
-    }
-    fn outputs(&self) -> Vec<OutputPort> {
-        vec![OutputPort {
-            name: "raid".to_string(),
-            assign: {
-                let mut h = Assign::new();
-                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_name".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_name".to_string(), "".to_string());
-                h.insert("viewers".to_string(), "".to_string());
-                h
-            },
-        }]
     }
 }

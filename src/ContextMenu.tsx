@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dropdown, Portal, Segment } from 'semantic-ui-react'
-import { Node, Component, components } from './bindings';
+import { Position, Component, components } from './bindings';
 
 export type ContextMenuProps = {
   open: boolean;
@@ -8,7 +8,7 @@ export type ContextMenuProps = {
   y: number;
 
   onMenuClose: () => void;
-  onMenuClick: (node: Node) => void;
+  onMenuClick: (type: string, pos: Position) => void;
 };
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({open, x, y, onMenuClose, onMenuClick}) => {
@@ -33,19 +33,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({open, x, y, onMenuClose
         top: y + AdhockFixForMousePosDiffX,
       }}>
         <Dropdown.Menu visible={open}>
-          {comps.map(({type, label, inputs, outputs}) => (
+          {comps.map(({type, label}) => (
             <Dropdown.Item onClick={() => {
-              const node: Node = {
-                type,
-                id: `${Math.random()}`,
-                position: { x: x + AdhockFixForMousePosDiffX, y: y + AdhockFixForMousePosDiffY},
-                data: {
-                  label,
-                  inputs: inputs,
-                  outputs: outputs,
-                },
+              const pos: Position = {
+                x: x + AdhockFixForMousePosDiffX,
+                y: y + AdhockFixForMousePosDiffY,
               };
-              onMenuClick(node);
+              onMenuClick(type, pos);
               onMenuClose();
             }}>{label}</Dropdown.Item>
           ))}
