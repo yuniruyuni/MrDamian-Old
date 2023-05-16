@@ -3,8 +3,10 @@ pub mod error;
 #[derive(Debug, Default, Clone)]
 pub struct Kind(pub String);
 
-pub type Assign = std::collections::HashMap<String, String>;
-pub type Properties = Vec<String>;
+pub type Argument = String;
+pub type PropertyName = String;
+pub type Assignment = std::collections::HashMap<Argument, PropertyName>;
+pub type PropertyNames = Vec<PropertyName>;
 
 #[derive(Debug, Default, Clone)]
 pub struct Pipeline {
@@ -25,7 +27,7 @@ pub struct Connection {
     pub id: String,
     pub source: InputPortID,
     pub target: OutputPortID,
-    pub assign: Assign,
+    pub assignment: Assignment,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -37,7 +39,7 @@ pub struct InputPortID {
 #[derive(Debug, Default, Clone)]
 pub struct InputPort {
     pub id: InputPortID,
-    pub properties: Properties,
+    pub property_names: PropertyNames,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -48,7 +50,7 @@ pub struct OutputPortID {
 #[derive(Debug, Default, Clone)]
 pub struct OutputPort {
     pub id: OutputPortID,
-    pub properties: Properties,
+    pub property_names: PropertyNames,
 }
 
 #[derive(Debug, Default, Clone)]

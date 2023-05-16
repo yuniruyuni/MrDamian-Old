@@ -8,15 +8,12 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
-import { editor, updateEditor, createComponent, Node, Edge, InputPort, OutputPort } from './bindings';
+import { editor, updateEditor, Node, Edge, InputPort, OutputPort } from './bindings';
 
 import { listen, EventName, EventCallback } from '@tauri-apps/api/event'
 
 type NodeWithEvent = Node & {
-  data: {
-    onInputAssignEdit: (i: InputPort) => void,
-    onOutputAssignEdit: (o: OutputPort) => void,
-  },
+  data: { },
 };
 
 function useListen<T>(event: EventName, handler: EventCallback<T>, deps?: DependencyList) {
@@ -30,8 +27,7 @@ function useListen<T>(event: EventName, handler: EventCallback<T>, deps?: Depend
 }
 
 export function usePipeline(
-  onInputAssignEdit: (node: Node, i: InputPort) => void,
-  onOutputAssignEdit: (node: Node, o: OutputPort) => void,
+  onAssignEdit: (source: Node, target: Node, sourcePort: InputPort, targetPort: OutputPort) => void,
 ) {
   const edgeUpdateSuccessful = useRef(true);
 
@@ -77,14 +73,40 @@ export function usePipeline(
     })()
   }, [nodes, edges]);
 
-  const extendNode = (node: Node) => ({
+  const extendNode: (node: Node) => NodeWithEvent = (node: Node) => ({
     ...node,
-    data: {
-      ...node.data,
-      onInputAssignEdit: (i: InputPort) => { onInputAssignEdit(node, i); },
-      onOutputAssignEdit: (o: OutputPort) => { onOutputAssignEdit(node, o); },
-    }
+    data: { ...node.data, },
   });
+
+  const onEdgeClick = useCallback((_e: React.MouseEvent, edge: RFEdge) => {
+      const rnodes: Node[] = nodes
+        .map((node) => ({ ...node, type: node.type??'' }));
+      const source = rnodes.find((node: Node) => node.id === edge.source);
+      const target = rnodes.find((node: Node) => node.id === edge.target);
+      const sourcePort = source?.data.outputs.find((i: OutputPort) => i.name === edge.sourceHandle);
+      const targetPort = target?.data.inputs.find((o: InputPort) => o.name === edge.targetHandle);
+
+      if( source === undefined ) return;
+      if( target === undefined ) return;
+      if( sourcePort === undefined ) return;
+      if( targetPort === undefined ) return;
+
+      onAssignEdit(
+        source,
+        target,
+        sourcePort,
+        targetPort,
+      );
+    }, [nodes]);
+
+  useEffect(() => {
+    (async () => {
+      const { nodes, edges } = await editor();
+      const nodesWithEvents = nodes.map((node) => extendNode(node));
+      setNodes(nodesWithEvents);
+      setEdges(edges);
+    })();
+  }, []);
 
   useListen('pipeline-updated', () => {
     (async () => {
@@ -106,5 +128,6 @@ export function usePipeline(
     onEdgeUpdateEnd,
     onConnect,
     onApply,
+    onEdgeClick,
   };
 }

@@ -72,7 +72,7 @@ impl Component for PublisherComponent {
                 parent: self.id.to_string(),
                 name: "message".to_string(),
             },
-            properties: vec![
+            property_names: vec![
                 "from_broadcaster_user_login".to_string(),
                 "from_broadcaster_user_id".to_string(),
                 "viewers".to_string(),

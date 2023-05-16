@@ -3,16 +3,18 @@ import ReactFlow, {
   MiniMap,
   Controls,
   Background,
+  Edge as RFEdge,
 } from 'reactflow';
 
 import 'reactflow/dist/style.css';
 
-import { Button, Segment, Sidebar, Form, Label } from 'semantic-ui-react'
+import { Button, Container, Modal, Table, Select } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
 
-import { Node, InputPort, OutputPort, Position, createComponent } from './bindings';
+import { Node, Edge, InputPort, OutputPort, Position, createComponent } from './bindings';
 import { ContextMenu } from "./ContextMenu";
+import { AssignmentModal } from "./AssignmentModal";
 
 export type ContextMenuState = {
   open: boolean;
@@ -20,19 +22,25 @@ export type ContextMenuState = {
   y: number;
 };
 
-type SidebarState = {
+type AssignModalState = {
   open: boolean;
   input?: InputPort;
   output?: OutputPort;
-  node?: Node;
+  edge?: Edge;
 };
 
 function App() {
-  const [ sidebar, setSidebar ] = useState<SidebarState>({open: false});
+  const [ modal, setModal ] = useState<AssignModalState>({open: false});
   const { onApply, ...pipeline } = usePipeline(
-    (node: Node, input: InputPort) => { setSidebar({open: true, input, node }); },
-    (node: Node, output: OutputPort) => { setSidebar({open: true, output, node }); },
+    (source: Node, target: Node, sourcePort: OutputPort, targetPort: InputPort) => {
+      setModal({open: true, input: sourcePort, output: targetPort});
+    },
   );
+
+  const onAssign = useCallback((assignment: Record<string, string>) => {
+    // TODO: call remote method to save assignment to editor state.
+    setModal({open: false});
+  }, []);
 
   const [ menu, setMenu ] = useState<ContextMenuState>({open: false, x: 0, y: 0});
   const onPaneContextMenu = useCallback((e: React.MouseEvent) => { setMenu({open: true, x: e.clientX, y: e.clientY}); }, [setMenu]);
@@ -58,20 +66,11 @@ function App() {
         onMenuClick={onMenuClick}
         {...menu}
       />
-      <Sidebar
-        as={Segment}
-        animation='overlay'
-        icon='labeled'
-        direction='left'
-        inverted
-        vertical
-        visible={sidebar.open}
-        onHide={() => setSidebar({open: false})}
-      >
-        <div style={{textAlign: 'left', padding: '16px'}}>
-          <span>TODO: implement</span>
-        </div>
-      </Sidebar>
+      <AssignmentModal
+        {...modal}
+        onAssign={onAssign}
+        onDiscard={() => setModal({open: false})}
+      />
     </div>
   );
 }

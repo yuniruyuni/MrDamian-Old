@@ -72,7 +72,7 @@ pub struct Edge {
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct EdgeData {
-    pub assign: Assign,
+    pub assignment: Assignment,
 }
 
 #[allow(clippy::from_over_into)]
@@ -88,18 +88,21 @@ impl Into<crate::model::Connection> for Edge {
                 parent: self.target,
                 name: self.target_handle,
             },
-            assign: self.data.assign,
+            assignment: self.data.assignment,
         }
     }
 }
 
-pub type Assign = std::collections::HashMap<String, String>;
+pub type Argument = String;
+pub type PropertyName = String;
+pub type Assignment = std::collections::HashMap<Argument, PropertyName>;
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct InputPort {
     pub parent: String,
     pub name: String,
-    pub properties: Vec<String>,
+    #[serde(rename = "propertyNames")]
+    pub property_names: Vec<PropertyName>,
 }
 
 impl From<crate::model::InputPort> for InputPort {
@@ -107,7 +110,7 @@ impl From<crate::model::InputPort> for InputPort {
         InputPort {
             parent: v.id.parent,
             name: v.id.name,
-            properties: v.properties,
+            property_names: v.property_names,
         }
     }
 }
@@ -120,7 +123,7 @@ impl Into<crate::model::InputPort> for InputPort {
                 parent: self.parent,
                 name: self.name,
             },
-            properties: self.properties,
+            property_names: self.property_names,
         }
     }
 }
@@ -129,7 +132,8 @@ impl Into<crate::model::InputPort> for InputPort {
 pub struct OutputPort {
     pub parent: String,
     pub name: String,
-    pub properties: Vec<String>,
+    #[serde(rename = "propertyNames")]
+    pub property_names: Vec<PropertyName>,
 }
 
 impl From<crate::model::OutputPort> for OutputPort {
@@ -137,7 +141,7 @@ impl From<crate::model::OutputPort> for OutputPort {
         OutputPort {
             parent: v.id.parent,
             name: v.id.name,
-            properties: v.properties,
+            property_names: v.property_names,
         }
     }
 }
@@ -150,7 +154,7 @@ impl Into<crate::model::OutputPort> for OutputPort {
                 parent: self.parent,
                 name: self.name,
             },
-            properties: self.properties,
+            property_names: self.property_names,
         }
     }
 }

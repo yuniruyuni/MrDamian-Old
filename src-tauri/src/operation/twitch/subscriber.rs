@@ -79,7 +79,7 @@ impl Component for SubscriberComponent {
                 parent: self.id.clone(),
                 name: "raid".to_string(),
             },
-            properties: vec![
+            property_names: vec![
                 "from_broadcaster_user_id".to_string(),
                 "from_broadcaster_user_login".to_string(),
                 "from_broadcaster_user_name".to_string(),
