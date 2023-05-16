@@ -161,7 +161,7 @@ impl DefaultComponent for Publisher {
 }
 
 use crate::pipeline::Constructor;
-use crate::protocol::{InputPort, OutputPort};
+use crate::protocol::{Assign, InputPort, OutputPort};
 
 #[derive(Debug, Default, Clone)]
 pub struct PublisherFactory {}
@@ -179,6 +179,13 @@ impl Constructor for PublisherFactory {
     fn inputs(&self) -> Vec<InputPort> {
         vec![InputPort {
             name: "message".to_string(),
+            assign: {
+                let mut h = Assign::new();
+                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("viewers".to_string(), "".to_string());
+                h
+            },
         }]
     }
     fn outputs(&self) -> Vec<OutputPort> {

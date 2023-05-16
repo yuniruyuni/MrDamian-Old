@@ -226,7 +226,7 @@ impl PassiveComponent for Subscriber {
 }
 
 use crate::pipeline::Constructor;
-use crate::protocol::{InputPort, OutputPort};
+use crate::protocol::{Assign, InputPort, OutputPort};
 
 #[derive(Debug, Default, Clone)]
 pub struct SubscriberFactory {}
@@ -247,6 +247,17 @@ impl Constructor for SubscriberFactory {
     fn outputs(&self) -> Vec<OutputPort> {
         vec![OutputPort {
             name: "raid".to_string(),
+            assign: {
+                let mut h = Assign::new();
+                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("from_broadcaster_user_name".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_id".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_login".to_string(), "".to_string());
+                h.insert("to_broadcaster_user_name".to_string(), "".to_string());
+                h.insert("viewers".to_string(), "".to_string());
+                h
+            },
         }]
     }
 }

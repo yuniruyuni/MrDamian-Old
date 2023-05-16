@@ -28,14 +28,18 @@ pub struct NodeData {
     pub outputs: Vec<OutputPort>,
 }
 
+pub type Assign = std::collections::HashMap<String, String>;
+
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct InputPort {
     pub name: String,
+    pub assign: Assign,
 }
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct OutputPort {
     pub name: String,
+    pub assign: Assign,
 }
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]

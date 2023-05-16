@@ -11,7 +11,7 @@ import { Button, Segment, Sidebar, Form, Label } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
 
-import { Node } from './bindings';
+import { Node, InputPort, OutputPort } from './bindings';
 import { ContextMenu } from "./ContextMenu";
 
 export type ContextMenuState = {
@@ -22,20 +22,27 @@ export type ContextMenuState = {
 
 type SidebarState = {
   open: boolean;
+  input?: InputPort;
+  output?: OutputPort;
   node?: Node;
 };
 
 function App() {
   const [ sidebar, setSidebar ] = useState<SidebarState>({open: false});
   const { onApply, addNode, ...pipeline } = usePipeline(
-    (node: Node) => { setSidebar({open: true, node }); },
-    (node: Node) => { setSidebar({open: true, node }); },
+    (node: Node, input: InputPort) => { setSidebar({open: true, input, node }); },
+    (node: Node, output: OutputPort) => { setSidebar({open: true, output, node }); },
   );
 
   const [ menu, setMenu ] = useState<ContextMenuState>({open: false, x: 0, y: 0});
   const onPaneContextMenu = useCallback((e: React.MouseEvent) => { setMenu({open: true, x: e.clientX, y: e.clientY}); }, [setMenu]);
   const onMenuClose = useCallback(() => { setMenu({open: false, x: 0, y: 0}) }, [setMenu]);
   const onMenuClick = useCallback((node: Node) => { addNode(node); }, [setMenu]);
+
+
+  const inputAssign = sidebar.input?.assign;
+  const outputAssign = sidebar.output?.assign;
+  const assign = inputAssign || outputAssign;
 
   return (
     <div className="container">
@@ -65,10 +72,14 @@ function App() {
         onHide={() => setSidebar({open: false})}
       >
         <div style={{textAlign: 'left', padding: '16px'}}>
-          <Form.Field>
-            <label>argument 1</label>
-            <input placeholder="linked to" />
-          </Form.Field>
+          {
+            Object.entries(assign ?? {}).map(([k, v]) => (
+              <Form.Field>
+                <label>{k}</label>
+                <input value={v} />
+              </Form.Field>
+            ))
+          }
         </div>
       </Sidebar>
     </div>

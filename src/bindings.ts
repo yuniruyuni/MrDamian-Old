@@ -20,11 +20,11 @@ export function components() {
     return invoke<Component[]>("components")
 }
 
-export type OutputPort = { name: string }
-export type Component = { type: string; label: string; inputs: InputPort[]; outputs: OutputPort[] }
+export type OutputPort = { name: string; assign: { [key: string]: string } }
 export type Node = { type: string; id: string; data: NodeData; position: Position }
 export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
-export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string }
+export type InputPort = { name: string; assign: { [key: string]: string } }
 export type Pipeline = { nodes: Node[]; edges: Edge[] }
-export type InputPort = { name: string }
+export type Component = { type: string; label: string; inputs: InputPort[]; outputs: OutputPort[] }
+export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string }
 export type Position = { x: number; y: number }
