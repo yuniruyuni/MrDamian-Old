@@ -1,9 +1,5 @@
 import { useCallback, useMemo, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { updatePipeline, pipeline, Node, Edge } from "./bindings";
-
 import type { Node as RFNode, Edge as RFEdge, Connection, HandleType } from 'reactflow';
-
 import {
   useNodesState,
   useEdgesState,
@@ -12,8 +8,19 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
+import { updatePipeline, pipeline, Node, Edge, InputPort, OutputPort } from './bindings';
 
-export function usePipeline() {
+type NodeWithEvent = Node & {
+  data: {
+    onInputAssignEdit: (i: InputPort) => void,
+    onOutputAssignEdit: (o: OutputPort) => void,
+  },
+};
+
+export function usePipeline(
+  onInputAssignEdit: (node: Node, i: InputPort) => void,
+  onOutputAssignEdit: (node: Node, o: OutputPort) => void,
+) {
   const edgeUpdateSuccessful = useRef(true);
 
   const nodeTypes = useMemo(() => ({
@@ -44,10 +51,8 @@ export function usePipeline() {
 
   const onApply = useCallback(() => {
     (async () => {
-      const rnodes: Node[] = nodes.map((node) => ({
-        ...node,
-        type: node.type??'',
-      }));
+      const rnodes: Node[] = nodes
+        .map((node) => ({ ...node, type: node.type??'' }));
       const redges: Edge[] = edges.map((edge) => ({
         ...edge,
         label: edge.label?.toString()??'',
@@ -59,14 +64,24 @@ export function usePipeline() {
     })()
   }, [nodes, edges]);
 
+  const extendNode = (node: Node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      onInputAssignEdit: (i: InputPort) => { onInputAssignEdit(node, i); },
+      onOutputAssignEdit: (o: OutputPort) => { onOutputAssignEdit(node, o); },
+    }
+  });
+
   const addNode = useCallback((node: Node) => {
-    setNodes((nodes) => [...nodes, node]);
+    setNodes((nodes) => [...nodes, extendNode(node)]);
   }, [setNodes]);
 
   useEffect(() => {
     (async () => {
       const { nodes, edges } = await pipeline();
-      setNodes(nodes);
+      const nodesWithEvents = nodes.map((node) => extendNode(node));
+      setNodes(nodesWithEvents);
       setEdges(edges);
     })()
   }, []);

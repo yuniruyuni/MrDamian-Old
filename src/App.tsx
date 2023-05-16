@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -7,7 +7,7 @@ import ReactFlow, {
 
 import 'reactflow/dist/style.css';
 
-import { Button } from 'semantic-ui-react'
+import { Button, Segment, Sidebar, Form, Label } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
 
@@ -20,8 +20,17 @@ export type ContextMenuState = {
   y: number;
 };
 
+type SidebarState = {
+  open: boolean;
+  node?: Node;
+};
+
 function App() {
-  const { onApply, addNode, ...pipeline } = usePipeline();
+  const [ sidebar, setSidebar ] = useState<SidebarState>({open: false});
+  const { onApply, addNode, ...pipeline } = usePipeline(
+    (node: Node) => { setSidebar({open: true, node }); },
+    (node: Node) => { setSidebar({open: true, node }); },
+  );
 
   const [ menu, setMenu ] = useState<ContextMenuState>({open: false, x: 0, y: 0});
   const onPaneContextMenu = useCallback((e: React.MouseEvent) => { setMenu({open: true, x: e.clientX, y: e.clientY}); }, [setMenu]);
@@ -31,12 +40,13 @@ function App() {
   return (
     <div className="container">
       <ReactFlow
-        {...pipeline}
-        onPaneContextMenu={onPaneContextMenu}
-      >
-        <MiniMap />
-        <Controls />
-        <Background />
+          {...pipeline}
+          fitView={true}
+          onPaneContextMenu={onPaneContextMenu}
+        >
+          <MiniMap />
+          <Controls />
+          <Background />
       </ReactFlow>
       <Button onClick={onApply} primary>Apply</Button>
       <ContextMenu
@@ -44,6 +54,23 @@ function App() {
         onMenuClick={onMenuClick}
         {...menu}
       />
+      <Sidebar
+        as={Segment}
+        animation='overlay'
+        icon='labeled'
+        direction='left'
+        inverted
+        vertical
+        visible={sidebar.open}
+        onHide={() => setSidebar({open: false})}
+      >
+        <div style={{textAlign: 'left', padding: '16px'}}>
+          <Form.Field>
+            <label>argument 1</label>
+            <input placeholder="linked to" />
+          </Form.Field>
+        </div>
+      </Sidebar>
     </div>
   );
 }

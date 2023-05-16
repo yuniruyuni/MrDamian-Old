@@ -3,13 +3,7 @@ import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
 import { css } from '@acab/ecsstatic';
 
-type Input = {
-  name: string,
-};
-
-type Output = {
-  name: string,
-};
+import { InputPort as Input, OutputPort as Output } from './bindings';
 
 const LabelCSS = css`
   background: #fff;
@@ -41,16 +35,16 @@ const Label: React.FC<{label: string}> = ({ label }) => (
   </div>
 );
 
-const InputPort: React.FC<Input> = ({name}) => (
-  <p>
-    <Handle type="target" position={Position.Left} id={name} className={PortCSS} />
-    {name}
+const InputPort: React.FC<{input: Input, onAssignEdit?: (i: Input) => void}> = ({input, onAssignEdit}) => (
+  <p onClick={() => onAssignEdit && onAssignEdit(input)}>
+    <Handle type="target" position={Position.Left} id={input.name} className={PortCSS} />
+    {input.name}
   </p>
 );
 
-const InputPorts: React.FC<{inputs: Input[]}> = ({inputs}) => (
+const InputPorts: React.FC<{inputs: Input[], onAssignEdit?: (i: Input) => void}> = ({inputs, onAssignEdit}) => (
   <div className={InputPortsCSS}>
-    {inputs.map(input => (<InputPort {...input} />))}
+    {inputs.map(input => (<InputPort input={input} onAssignEdit={onAssignEdit} />))}
   </div>
 );
 
@@ -63,16 +57,19 @@ const OutputPortsCSS = css`
   border-radius: 0 0 5px 0;
 `;
 
-const OutputPort: React.FC<Output> = ({name}) => (
-  <p>
-    {name}
-    <Handle className={PortCSS} type="source" position={Position.Right} id={name} />
+const OutputPort: React.FC<{output: Output, onAssignEdit?: (o: Output) => void}> = ({output, onAssignEdit}) => (
+  <p onClick={() => {
+    onAssignEdit && onAssignEdit(output);
+    console.log(onAssignEdit);
+  }}>
+    {output.name}
+    <Handle className={PortCSS} type="source" position={Position.Right} id={output.name} />
   </p>
 );
 
-const OutputPorts: React.FC<{outputs: Output[]}> = ({outputs}) => (
+const OutputPorts: React.FC<{outputs: Output[], onAssignEdit: (o: Output) => void}> = ({outputs, onAssignEdit}) => (
   <div className={OutputPortsCSS}>
-    {outputs.map(output => (<OutputPort {...output} />))}
+    {outputs.map(output => (<OutputPort output={output} onAssignEdit={onAssignEdit} />))}
   </div>
 );
 
@@ -91,10 +88,12 @@ export const PropertiesNode: React.FC<NodeProps<{
   label: string,
   inputs: Input[],
   outputs: Output[],
-}>> = ({ data: { label, inputs, outputs } }) => (
+  onInputAssignEdit: (i: Input) => void,
+  onOutputAssignEdit: (o: Output) => void,
+}>> = ({ data: { label, inputs, outputs, onInputAssignEdit, onOutputAssignEdit } }) => (
   <div className={PropertiesNodeCSS}>
     <Label label={label} />
-    <InputPorts inputs={inputs} />
-    <OutputPorts outputs={outputs} />
+    <InputPorts inputs={inputs} onAssignEdit={onInputAssignEdit} />
+    <OutputPorts outputs={outputs} onAssignEdit={onOutputAssignEdit} />
   </div>
 );
