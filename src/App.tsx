@@ -39,7 +39,6 @@ function App() {
   const onMenuClose = useCallback(() => { setMenu({open: false, x: 0, y: 0}) }, [setMenu]);
   const onMenuClick = useCallback((node: Node) => { addNode(node); }, [setMenu]);
 
-
   const inputAssign = sidebar.input?.assign;
   const outputAssign = sidebar.output?.assign;
   const assign = inputAssign || outputAssign;

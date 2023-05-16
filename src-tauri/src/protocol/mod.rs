@@ -62,3 +62,5 @@ pub struct Component {
     pub inputs: Vec<InputPort>,
     pub outputs: Vec<OutputPort>,
 }
+
+pub const PIPELINE_UPDATED: &str = "pipeline-updated";

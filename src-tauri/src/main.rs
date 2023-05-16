@@ -11,10 +11,10 @@ mod twitch;
 use miette::{IntoDiagnostic, Result, WrapErr};
 use std::sync::Mutex;
 
-use tauri::{generate_context, generate_handler, Builder, Manager, State, SystemTray, WindowEvent};
+use tauri::{generate_context, generate_handler, Builder, Manager, State, SystemTray, WindowEvent, AppHandle};
 
 use pipeline::{Factories, Handles};
-use protocol::{Component, Pipeline};
+use protocol::{Component, Pipeline, PIPELINE_UPDATED};
 
 fn factories() -> Factories {
     Factories::new(vec![
@@ -52,8 +52,17 @@ fn pipeline(state: State<'_, PipelineState>) -> Pipeline {
 
 #[tauri::command]
 #[specta::specta]
-fn update_pipeline(state: State<'_, PipelineState>, updated: Pipeline) {
+#[allow(unused_variables)]
+fn create_component(app: AppHandle, state: State<'_, PipelineState>, component: String, position: protocol::Position){
+    // TODO: state.create_component(component, position);
+    app.emit_all(PIPELINE_UPDATED, "create_component").unwrap();
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_pipeline(app: AppHandle, state: State<'_, PipelineState>, updated: Pipeline) {
     state.set(updated);
+    app.emit_all(PIPELINE_UPDATED, "update_pipeline").unwrap();
 }
 
 #[tauri::command]
@@ -77,7 +86,7 @@ fn main() -> Result<()> {
     let system_tray = SystemTray::new().with_menu(tray::menu_from(tray::MenuMode::Hide));
 
     Builder::default()
-        .invoke_handler(generate_handler![pipeline, update_pipeline, components])
+        .invoke_handler(generate_handler![pipeline, update_pipeline, components, create_component])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)
         .on_window_event(|event| {

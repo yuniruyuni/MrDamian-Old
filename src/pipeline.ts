@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect, useRef } from "react";
+import { useCallback, useMemo, useEffect, useRef, DependencyList } from "react";
 import type { Node as RFNode, Edge as RFEdge, Connection, HandleType } from 'reactflow';
 import {
   useNodesState,
@@ -10,12 +10,24 @@ import {
 import { PropertiesNode } from "./PropertiesNode";
 import { updatePipeline, pipeline, Node, Edge, InputPort, OutputPort } from './bindings';
 
+import { listen, EventName, EventCallback } from '@tauri-apps/api/event'
+
 type NodeWithEvent = Node & {
   data: {
     onInputAssignEdit: (i: InputPort) => void,
     onOutputAssignEdit: (o: OutputPort) => void,
   },
 };
+
+function useListen<T>(event: EventName, handler: EventCallback<T>, deps?: DependencyList) {
+  useEffect(() => {
+    // TODO: Consider this unlisten behavior.
+    // Maybe it will leak if component has released before `await sliten()` not done .
+    let unlisten: () => void = () => {};
+    (async () => { unlisten = await listen(event, handler); })();
+    return () => { unlisten() };
+  }, deps);
+}
 
 export function usePipeline(
   onInputAssignEdit: (node: Node, i: InputPort) => void,
@@ -77,13 +89,14 @@ export function usePipeline(
     setNodes((nodes) => [...nodes, extendNode(node)]);
   }, [setNodes]);
 
-  useEffect(() => {
+  useListen('pipeline-updated', () => {
     (async () => {
+      console.log("pipeline-updated");
       const { nodes, edges } = await pipeline();
       const nodesWithEvents = nodes.map((node) => extendNode(node));
       setNodes(nodesWithEvents);
       setEdges(edges);
-    })()
+    })();
   }, []);
 
   return {
