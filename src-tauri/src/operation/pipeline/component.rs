@@ -28,6 +28,7 @@ pub trait DefaultComponent: Component {
     async fn setup(&mut self) -> Result<()> {
         Ok(())
     }
+
     async fn default_run(&mut self) -> Result<()> {
         // TODO: implement better error handling.
         self.setup().await?;

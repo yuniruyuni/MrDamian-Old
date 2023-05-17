@@ -1,23 +1,20 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod config;
-
 mod model;
 mod operation;
 mod presentation;
 mod repository;
 mod usecase;
 
-use presentation::tray;
+mod config;
 
+use std::sync::Mutex;
 use miette::{IntoDiagnostic, Result, WrapErr};
-
 use tauri::{generate_context, generate_handler, Builder, Manager, SystemTray, WindowEvent};
 
-use crate::model::Pipeline;
-use crate::operation::factories;
-use crate::repository::PipelineState;
+use repository::Repositories;
+use presentation::tray;
 
 fn gen_bindings() {
     use presentation::command::*;
@@ -52,11 +49,7 @@ fn main() -> Result<()> {
             }
         })
         .setup(|app| {
-            let pipe = Pipeline::default();
-            let handles = factories().create_pipeline(&pipe);
-            let pipeline_state = PipelineState::new(pipe, handles);
-
-            app.manage(pipeline_state);
+            app.manage(Mutex::new(Repositories::new()));
 
             Ok(())
         })
