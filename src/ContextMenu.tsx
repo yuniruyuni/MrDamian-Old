@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dropdown, Portal, Segment } from 'semantic-ui-react'
-import { Position, Component, components } from './bindings';
+import { Position, Candidate, candidates } from './bindings';
 
 export type ContextMenuProps = {
   open: boolean;
@@ -12,14 +12,14 @@ export type ContextMenuProps = {
 };
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({open, x, y, onMenuClose, onMenuClick}) => {
-  const [ comps, setComps ] = useState<Component[]>([]);
+  const [ cands, setCands ] = useState<Candidate[]>([]);
 
   useEffect(() => {
    (async () => {
-      const comps = await components();
-      setComps(comps);
+      const cands = await candidates();
+      setCands(cands);
    })()
-  }, [setComps]);
+  }, []);
 
   // TODO: avoid ad-hock mouse position fixing.
   const AdhockFixForMousePosDiffX = -8;
@@ -33,13 +33,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({open, x, y, onMenuClose
         top: y + AdhockFixForMousePosDiffX,
       }}>
         <Dropdown.Menu visible={open}>
-          {comps.map(({type, label}) => (
+          {cands.map(({kind, label}) => (
             <Dropdown.Item onClick={() => {
               const pos: Position = {
                 x: x + AdhockFixForMousePosDiffX,
                 y: y + AdhockFixForMousePosDiffY,
               };
-              onMenuClick(type, pos);
+              onMenuClick(kind, pos);
               onMenuClose();
             }}>{label}</Dropdown.Item>
           ))}

@@ -8,7 +8,7 @@ import {
 } from 'reactflow';
 
 import { PropertiesNode } from "./PropertiesNode";
-import { updatePipeline, createComponent, pipeline, Node, Edge, InputPort, OutputPort } from './bindings';
+import { editor, updateEditor, createComponent, Node, Edge, InputPort, OutputPort } from './bindings';
 
 import { listen, EventName, EventCallback } from '@tauri-apps/api/event'
 
@@ -70,9 +70,10 @@ export function usePipeline(
         label: edge.label?.toString()??'',
         sourceHandle: edge.sourceHandle??'',
         targetHandle: edge.targetHandle??'',
+        data: edge.data??{},
       }));
 
-      await updatePipeline({ nodes: rnodes, edges: redges });
+      await updateEditor({ nodes: rnodes, edges: redges });
     })()
   }, [nodes, edges]);
 
@@ -87,7 +88,7 @@ export function usePipeline(
 
   useListen('pipeline-updated', () => {
     (async () => {
-      const { nodes, edges } = await pipeline();
+      const { nodes, edges } = await editor();
       const nodesWithEvents = nodes.map((node) => extendNode(node));
       setNodes(nodesWithEvents);
       setEdges(edges);

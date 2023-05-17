@@ -5,12 +5,12 @@ use hashbrown::HashMap;
 use miette::{IntoDiagnostic, Result};
 
 use crate::model::error::MrDamianError;
-use crate::model::Pipeline;
+use crate::model::{Candidate, Kind, Pipeline};
 use crate::operation::pipeline::{Component, Connection, Constructor, Handles};
 
-pub struct Factories(HashMap<&'static str, Constructor>);
+pub struct Factory(HashMap<&'static str, Constructor>);
 
-impl Factories {
+impl Factory {
     pub fn new(cs: Vec<Constructor>) -> Self {
         let mut map = HashMap::new();
         for c in cs {
@@ -19,9 +19,9 @@ impl Factories {
         Self(map)
     }
 
-    fn create_component(&self, kind: &str) -> Result<Box<dyn Component + Send>> {
+    fn create_component(&self, kind: &str, id: &str) -> Result<Box<dyn Component + Send>> {
         if let Some(c) = self.0.get(kind) {
-            Ok((c.gen)(&crate::config::Config::load_envs()?))
+            Ok((c.gen)(id, &crate::config::Config::load_envs()?))
         } else {
             Err(MrDamianError::InvalidComponent).into_diagnostic()
         }
@@ -29,21 +29,22 @@ impl Factories {
 
     pub fn create_pipeline(&self, pipeline: &Pipeline) -> Handles {
         let mut components = HashMap::new();
-        for node in &pipeline.nodes {
-            if let Ok(component) = self.create_component(node.node_type.as_str()) {
-                components.insert(node.id.clone(), component);
+        for mcomp in &pipeline.components {
+            if let Ok(ocomp) = self.create_component(&mcomp.id, mcomp.kind.0.as_str()) {
+                components.insert(mcomp.id.clone(), ocomp);
             }
         }
 
-        for edge in &pipeline.edges {
-            let res = components.get_many_mut([edge.source.as_str(), edge.target.as_str()]);
+        for conn in &pipeline.connections {
+            let res =
+                components.get_many_mut([conn.source.parent.as_str(), conn.target.parent.as_str()]);
             if let Some([source, target]) = res {
-                eprintln!("Connecting {} to {}", edge.source, edge.target);
+                // TODO: eprintln!("Connecting {} to {}", conn.source, conn.target);
                 Connection::connect(
                     source.as_mut(),
                     target.as_mut(),
-                    edge.source_handle.as_str(),
-                    edge.target_handle.as_str(),
+                    conn.source.name.as_str(),
+                    conn.target.name.as_str(),
                 );
             }
         }
@@ -61,11 +62,11 @@ impl Factories {
         handles
     }
 
-    pub fn components(&self) -> Vec<crate::model::Component> {
+    pub fn candidates(&self) -> Vec<Candidate> {
         let mut res = vec![];
         for (_, c) in &self.0 {
-            res.push(crate::model::Component {
-                kind: c.kind.to_string(),
+            res.push(Candidate {
+                kind: Kind(c.kind.to_string()),
                 label: c.label.to_string(),
             });
         }
@@ -73,8 +74,8 @@ impl Factories {
     }
 }
 
-pub fn factories() -> Factories {
-    Factories::new(vec![
+pub fn factory() -> Factory {
+    Factory::new(vec![
         twitch::Publisher::constructor(),
         twitch::Subscriber::constructor(),
     ])

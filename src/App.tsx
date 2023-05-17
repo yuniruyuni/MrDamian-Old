@@ -41,10 +41,6 @@ function App() {
     await createComponent(type, pos);
   }, [setMenu]);
 
-  const inputAssign = sidebar.input?.assign;
-  const outputAssign = sidebar.output?.assign;
-  const assign = inputAssign || outputAssign;
-
   return (
     <div className="container">
       <ReactFlow
@@ -73,14 +69,7 @@ function App() {
         onHide={() => setSidebar({open: false})}
       >
         <div style={{textAlign: 'left', padding: '16px'}}>
-          {
-            Object.entries(assign ?? {}).map(([k, v]) => (
-              <Form.Field>
-                <label>{k}</label>
-                <input value={v} />
-              </Form.Field>
-            ))
-          }
+          <span>TODO: implement</span>
         </div>
       </Sidebar>
     </div>

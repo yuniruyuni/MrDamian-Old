@@ -10,11 +10,12 @@ use miette::{miette, IntoDiagnostic, Result};
 
 use crate::{
     model::error::MrDamianError,
-    model::{Assign, InputPort, OutputPort},
+    model::{InputPort, InputPortID, OutputPort},
     operation::pipeline::{Component, Connection, Constructor, DefaultComponent, Packet, Property},
 };
 
 pub struct Publisher {
+    id: String,
     client: HelixClient<'static, reqwest::Client>,
     oauth: AccessToken,
     token: Option<UserToken>,
@@ -34,17 +35,23 @@ impl Publisher {
             kind: "TwitchPublisher",
             label: "Twitch Publisher",
             gen: Box::new(
-                |config: &crate::config::Config| -> Box<dyn Component + Send> {
-                    Box::new(Publisher::new(&config.bot, &config.channel, &config.token))
+                |id: &str, config: &crate::config::Config| -> Box<dyn Component + Send> {
+                    Box::new(Publisher::new(
+                        id,
+                        &config.bot,
+                        &config.channel,
+                        &config.token,
+                    ))
                 },
             ),
         }
     }
 
-    pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
+    pub fn new(id: &str, bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
 
         Self {
+            id: id.to_string(),
             client,
             oauth: oauth.into(),
             token: None,
@@ -108,14 +115,15 @@ impl Component for Publisher {
 
     fn inputs(&self) -> Vec<InputPort> {
         vec![InputPort {
-            name: "message".to_string(),
-            assign: {
-                let mut h = Assign::new();
-                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("viewers".to_string(), "".to_string());
-                h
+            id: InputPortID {
+                parent: self.id.to_string(),
+                name: "message".to_string(),
             },
+            properties: vec![
+                "from_broadcaster_user_login".to_string(),
+                "from_broadcaster_user_id".to_string(),
+                "viewers".to_string(),
+            ],
         }]
     }
 

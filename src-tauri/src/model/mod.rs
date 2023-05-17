@@ -1,70 +1,59 @@
 pub mod error;
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Pipeline {
-    pub nodes: Vec<Node>,
-    pub edges: Vec<Edge>,
-}
-
-impl Pipeline {
-    pub fn next_id(&self) -> String {
-        ulid::Ulid::new().to_string()
-    }
-}
-
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Node {
-    #[serde(rename = "type")]
-    pub node_type: String,
-    pub id: String,
-    pub data: NodeData,
-    pub position: Position,
-}
-
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Position {
-    pub x: f64,
-    pub y: f64,
-}
-
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct NodeData {
-    pub label: String,
-    pub inputs: Vec<InputPort>,
-    pub outputs: Vec<OutputPort>,
-}
+#[derive(Debug, Default, Clone)]
+pub struct Kind(pub String);
 
 pub type Assign = std::collections::HashMap<String, String>;
+pub type Properties = Vec<String>;
 
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct InputPort {
-    pub name: String,
-    pub assign: Assign,
+#[derive(Debug, Default, Clone)]
+pub struct Pipeline {
+    pub components: Vec<Component>,
+    pub connections: Vec<Connection>,
 }
 
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct OutputPort {
-    pub name: String,
-    pub assign: Assign,
-}
-
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Edge {
-    pub id: String,
-    pub label: Option<String>,
-    pub source: String,
-    pub target: String,
-    #[serde(rename = "sourceHandle")]
-    pub source_handle: String,
-    #[serde(rename = "targetHandle")]
-    pub target_handle: String,
-}
-
-#[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone)]
 pub struct Component {
-    pub kind: String,
+    pub kind: Kind,
+    pub id: String,
+    pub outputs: Vec<OutputPort>,
+    pub inputs: Vec<InputPort>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Connection {
+    pub id: String,
+    pub source: InputPortID,
+    pub target: OutputPortID,
+    pub assign: Assign,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct InputPortID {
+    pub parent: String,
+    pub name: String,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct InputPort {
+    pub id: InputPortID,
+    pub properties: Properties,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct OutputPortID {
+    pub parent: String,
+    pub name: String,
+}
+#[derive(Debug, Default, Clone)]
+pub struct OutputPort {
+    pub id: OutputPortID,
+    pub properties: Properties,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Candidate {
+    pub kind: Kind,
     pub label: String,
 }
 

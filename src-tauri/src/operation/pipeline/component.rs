@@ -4,7 +4,7 @@ use miette::Result;
 use super::{Connection, Packet};
 use crate::model::{InputPort, OutputPort};
 
-pub type Generator = dyn Fn(&crate::config::Config) -> Box<dyn Component + Send>;
+pub type Generator = dyn Fn(&str, &crate::config::Config) -> Box<dyn Component + Send>;
 
 pub struct Constructor {
     pub kind: &'static str,

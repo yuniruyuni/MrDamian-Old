@@ -9,17 +9,17 @@ mod usecase;
 
 mod config;
 
-use std::sync::Mutex;
 use miette::{IntoDiagnostic, Result, WrapErr};
+use std::sync::Mutex;
 use tauri::{generate_context, generate_handler, Builder, Manager, SystemTray, WindowEvent};
 
-use repository::Repositories;
 use presentation::tray;
+use repository::Repositories;
 
 fn gen_bindings() {
     use presentation::command::*;
     tauri_specta::ts::export(
-        specta::collect_types![pipeline, update_pipeline, components, create_component],
+        specta::collect_types![candidates, create_component, editor, update_editor],
         "../src/bindings.ts",
     )
     .unwrap();
@@ -35,10 +35,10 @@ fn main() -> Result<()> {
 
     Builder::default()
         .invoke_handler(generate_handler![
-            pipeline,
-            update_pipeline,
-            components,
-            create_component
+            candidates,
+            create_component,
+            editor,
+            update_editor
         ])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)

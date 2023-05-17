@@ -1,14 +1,22 @@
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use crate::model::{Component, Position, PIPELINE_UPDATED};
-use crate::operation::factories; // TODO: encapsulate by repository layer.
+use crate::model::PIPELINE_UPDATED;
+use crate::operation::factory; // TODO: encapsulate by repository layer.
+use crate::presentation::protocol::{Candidate, Position};
 use crate::repository::Repositories;
 
 #[tauri::command]
 #[specta::specta]
-pub fn components() -> Vec<Component> {
-    factories().components()
+pub fn candidates() -> Vec<Candidate> {
+    let mut res = vec![];
+    for c in factory().candidates() {
+        res.push(Candidate {
+            kind: c.kind.0.clone(),
+            label: c.label.to_string(),
+        });
+    }
+    res
 }
 
 #[tauri::command]
@@ -17,10 +25,10 @@ pub fn components() -> Vec<Component> {
 pub fn create_component(
     app: AppHandle,
     repos: State<'_, Mutex<Repositories>>,
-    component: String,
+    kind: String,
     position: Position,
 ) {
     let mut repos = repos.lock().expect("Failed to lock pipeline repository");
-    repos.pipeline.editing.create_component(component, position);
+    repos.editor.create_component(kind, position);
     app.emit_all(PIPELINE_UPDATED, "create_component").unwrap();
 }

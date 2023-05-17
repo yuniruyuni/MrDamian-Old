@@ -8,27 +8,28 @@ declare global {
 
 const invoke = window.__TAURI_INVOKE__;
 
-export function pipeline() {
-    return invoke<Pipeline>("pipeline")
+export function candidates() {
+    return invoke<Candidate[]>("candidates")
 }
 
-export function updatePipeline(updated: Pipeline) {
-    return invoke<null>("update_pipeline", { updated })
+export function createComponent(kind: string, position: Position) {
+    return invoke<null>("create_component", { kind,position })
 }
 
-export function components() {
-    return invoke<Component[]>("components")
+export function editor() {
+    return invoke<Editor>("editor")
 }
 
-export function createComponent(component: string, position: Position) {
-    return invoke<null>("create_component", { component,position })
+export function updateEditor(updated: Editor) {
+    return invoke<null>("update_editor", { updated })
 }
 
-export type Position = { x: number; y: number }
+export type InputPort = { parent: string; name: string; properties: string[] }
+export type Candidate = { kind: string; label: string }
+export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string; data: EdgeData }
+export type Editor = { nodes: Node[]; edges: Edge[] }
+export type Node = { id: string; type: string; position: Position; data: NodeData }
 export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
-export type Node = { type: string; id: string; data: NodeData; position: Position }
-export type Pipeline = { nodes: Node[]; edges: Edge[] }
-export type OutputPort = { name: string; assign: { [key: string]: string } }
-export type InputPort = { name: string; assign: { [key: string]: string } }
-export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string }
-export type Component = { kind: string; label: string }
+export type Position = { x: number; y: number }
+export type OutputPort = { parent: string; name: string; properties: string[] }
+export type EdgeData = { assign: { [key: string]: string } }

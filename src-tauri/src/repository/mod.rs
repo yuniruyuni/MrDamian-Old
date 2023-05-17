@@ -1,13 +1,16 @@
+mod editor;
 mod pipeline;
 
-pub struct Repositories where {
-    pub pipeline: pipeline::PipelineRepositories,
+pub struct Repositories {
+    pub editor: Box<dyn editor::Repository + Send>,
+    pub pipeline: Box<dyn pipeline::Repository + Send>,
 }
 
 impl Repositories {
     pub fn new() -> Self {
         Self {
-            pipeline: pipeline::PipelineRepositories::new(),
+            editor: Box::new(editor::Impl::new()),
+            pipeline: Box::new(pipeline::Impl::new()),
         }
     }
 

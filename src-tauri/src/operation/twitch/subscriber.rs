@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 use crate::model::error::MrDamianError;
-use crate::model::{Assign, InputPort, OutputPort};
+use crate::model::{InputPort, OutputPort, OutputPortID};
 use crate::operation::pipeline::{
     Component, Connection, Constructor, Message, Packet, PassiveComponent, Property,
 };
@@ -22,6 +22,7 @@ type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 pub struct Subscriber {
+    id: String,
     client: HelixClient<'static, reqwest::Client>,
     oauth: AccessToken,
     token: Option<UserToken>,
@@ -46,17 +47,23 @@ impl Subscriber {
             kind: "TwitchSubscriber",
             label: "Twitch Subscriber",
             gen: Box::new(
-                |config: &crate::config::Config| -> Box<dyn Component + Send> {
-                    Box::new(Subscriber::new(&config.bot, &config.channel, &config.token))
+                |id: &str, config: &crate::config::Config| -> Box<dyn Component + Send> {
+                    Box::new(Subscriber::new(
+                        id,
+                        &config.bot,
+                        &config.channel,
+                        &config.token,
+                    ))
                 },
             ),
         }
     }
 
-    pub fn new(bot: &str, channel: &str, oauth: &str) -> Self {
+    pub fn new(id: &str, bot: &str, channel: &str, oauth: &str) -> Self {
         let client: HelixClient<reqwest::Client> = HelixClient::default();
 
         Self {
+            id: id.to_string(),
             client,
             socket: None,
             channel: channel.into(),
@@ -213,18 +220,19 @@ impl Component for Subscriber {
 
     fn outputs(&self) -> Vec<OutputPort> {
         vec![OutputPort {
-            name: "raid".to_string(),
-            assign: {
-                let mut h = Assign::new();
-                h.insert("from_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("from_broadcaster_user_name".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_id".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_login".to_string(), "".to_string());
-                h.insert("to_broadcaster_user_name".to_string(), "".to_string());
-                h.insert("viewers".to_string(), "".to_string());
-                h
+            id: OutputPortID {
+                parent: self.id.clone(),
+                name: "raid".to_string(),
             },
+            properties: vec![
+                "from_broadcaster_user_id".to_string(),
+                "from_broadcaster_user_login".to_string(),
+                "from_broadcaster_user_name".to_string(),
+                "to_broadcaster_user_id".to_string(),
+                "to_broadcaster_user_login".to_string(),
+                "to_broadcaster_user_name".to_string(),
+                "viewers".to_string(),
+            ],
         }]
     }
 }
