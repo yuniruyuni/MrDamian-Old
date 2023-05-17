@@ -1,4 +1,4 @@
-use crate::pipeline::message::Message;
+use super::message::Message;
 
 #[derive(Debug)]
 pub struct Packet {

@@ -12,11 +12,11 @@ use twitch_api::{
 use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::error::MrDamianError;
-use crate::pipeline::{
+use crate::model::error::MrDamianError;
+use crate::model::{Assign, InputPort, OutputPort};
+use crate::operation::pipeline::{
     Component, Connection, Constructor, Message, Packet, PassiveComponent, Property,
 };
-use crate::protocol::{Assign, InputPort, OutputPort};
 
 type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;

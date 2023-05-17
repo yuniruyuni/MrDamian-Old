@@ -3,9 +3,9 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use miette::{IntoDiagnostic, Result};
 
-use crate::error::MrDamianError;
-use crate::pipeline::message::Message;
-use crate::pipeline::packet::Packet;
+use super::message::Message;
+use super::packet::Packet;
+use crate::model::error::MrDamianError;
 
 #[derive(Debug)]
 pub struct InputPort {

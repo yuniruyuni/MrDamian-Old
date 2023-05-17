@@ -1,3 +1,5 @@
+pub mod error;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]

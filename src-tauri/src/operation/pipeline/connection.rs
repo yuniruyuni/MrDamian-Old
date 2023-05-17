@@ -1,6 +1,7 @@
-use crate::pipeline::packet::Packet;
-use crate::pipeline::port::{InputPort, OutputPort, OutputPorts};
 use miette::Result;
+
+use super::packet::Packet;
+use super::port::{InputPort, OutputPort, OutputPorts};
 
 use super::Component;
 

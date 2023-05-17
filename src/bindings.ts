@@ -24,11 +24,11 @@ export function createComponent(component: string, position: Position) {
     return invoke<null>("create_component", { component,position })
 }
 
+export type Position = { x: number; y: number }
+export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
+export type Node = { type: string; id: string; data: NodeData; position: Position }
+export type Pipeline = { nodes: Node[]; edges: Edge[] }
+export type OutputPort = { name: string; assign: { [key: string]: string } }
 export type InputPort = { name: string; assign: { [key: string]: string } }
 export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string }
-export type OutputPort = { name: string; assign: { [key: string]: string } }
 export type Component = { kind: string; label: string }
-export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
-export type Pipeline = { nodes: Node[]; edges: Edge[] }
-export type Position = { x: number; y: number }
-export type Node = { type: string; id: string; data: NodeData; position: Position }

@@ -1,20 +1,12 @@
-mod component;
-mod connection;
-mod handle;
-mod message;
-mod packet;
-mod port;
+pub mod pipeline;
+mod twitch;
 
-pub use component::*;
-pub use connection::*;
-pub use handle::*;
-pub use message::*;
-pub use packet::*;
-
-use crate::error::MrDamianError;
-use crate::protocol::Pipeline;
 use hashbrown::HashMap;
 use miette::{IntoDiagnostic, Result};
+
+use crate::model::error::MrDamianError;
+use crate::model::Pipeline;
+use crate::operation::pipeline::{Component, Connection, Constructor, Handles};
 
 pub struct Factories(HashMap<&'static str, Constructor>);
 
@@ -69,14 +61,21 @@ impl Factories {
         handles
     }
 
-    pub fn components(&self) -> Vec<crate::protocol::Component> {
+    pub fn components(&self) -> Vec<crate::model::Component> {
         let mut res = vec![];
         for (_, c) in &self.0 {
-            res.push(crate::protocol::Component {
+            res.push(crate::model::Component {
                 kind: c.kind.to_string(),
                 label: c.label.to_string(),
             });
         }
         res
     }
+}
+
+pub fn factories() -> Factories {
+    Factories::new(vec![
+        twitch::Publisher::constructor(),
+        twitch::Subscriber::constructor(),
+    ])
 }

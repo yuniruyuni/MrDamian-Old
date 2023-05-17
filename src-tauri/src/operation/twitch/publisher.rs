@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result};
 
 use crate::{
-    error::MrDamianError,
-    pipeline::{Component, Connection, Constructor, DefaultComponent, Packet, Property},
-    protocol::{Assign, InputPort, OutputPort},
+    model::error::MrDamianError,
+    model::{Assign, InputPort, OutputPort},
+    operation::pipeline::{Component, Connection, Constructor, DefaultComponent, Packet, Property},
 };
 
 pub struct Publisher {

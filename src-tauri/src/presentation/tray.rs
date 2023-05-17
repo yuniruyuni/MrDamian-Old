@@ -1,6 +1,6 @@
 use miette::{IntoDiagnostic, Result, WrapErr};
 
-use crate::error::MrDamianError;
+use crate::model::error::MrDamianError;
 
 use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,

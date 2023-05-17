@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-
-use crate::pipeline::{Connection, Packet};
-use crate::protocol::{InputPort, OutputPort};
 use miette::Result;
+
+use super::{Connection, Packet};
+use crate::model::{InputPort, OutputPort};
 
 pub type Generator = dyn Fn(&crate::config::Config) -> Box<dyn Component + Send>;
 
