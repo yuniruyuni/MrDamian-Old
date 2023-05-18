@@ -12,12 +12,6 @@ pub enum MrDamianError {
     #[error("port not found")]
     PortNotFound(String),
 
-    #[error("invalid token")]
-    InvalidToken,
-
-    #[error("invalid socket")]
-    InvalidSocket,
-
     #[error("invalid component")]
     InvalidComponent,
 

@@ -12,45 +12,33 @@ use twitch_api::{
 use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::model::error::MrDamianError;
-use crate::model::{InputPort, OutputPort, OutputPortID};
 use crate::operation::pipeline::{
-    Component, Connection, Constructor, Message, Packet, PassiveComponent, Property,
+    Component, Connection, Constructor, Message, Packet, Process, ProcessInit, Property,
+};
+use crate::{
+    model::{InputPort, OutputPort, OutputPortID},
+    operation::pipeline::PassiveProcess,
 };
 
 type WSConnection =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-pub struct Subscriber {
+#[derive(Debug, Clone)]
+pub struct SubscriberComponent {
     id: String,
-    client: HelixClient<'static, reqwest::Client>,
     oauth: AccessToken,
-    token: Option<UserToken>,
-
     channel: UserName,
-    channel_id: UserId,
-
-    bot: UserName,
-    bot_id: UserId,
-
-    session_id: Option<String>,
-    reconnect_url: Option<url::Url>,
-
-    socket: Option<WSConnection>,
-
-    conn: Connection,
 }
 
-impl Subscriber {
+impl SubscriberComponent {
     pub fn constructor() -> Constructor {
         Constructor {
             kind: "TwitchSubscriber",
             label: "Twitch Subscriber",
             gen: Box::new(
                 |id: &str, config: &crate::config::Config| -> Box<dyn Component + Send> {
-                    Box::new(Subscriber::new(
+                    Box::new(SubscriberComponent::new(
                         id,
-                        &config.bot,
                         &config.channel,
                         &config.token,
                     ))
@@ -59,28 +47,90 @@ impl Subscriber {
         }
     }
 
-    pub fn new(id: &str, bot: &str, channel: &str, oauth: &str) -> Self {
-        let client: HelixClient<reqwest::Client> = HelixClient::default();
-
+    pub fn new(id: &str, channel: &str, oauth: &str) -> Self {
         Self {
             id: id.to_string(),
-            client,
-            socket: None,
             channel: channel.into(),
-            bot: bot.into(),
             oauth: oauth.into(),
-            token: None,
-            session_id: None,
-            reconnect_url: None,
-            channel_id: "".into(),
-            bot_id: "".into(),
-            conn: Connection::new(),
         }
     }
+}
 
-    pub async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
-        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
-        self.client
+impl Component for SubscriberComponent {
+    fn id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn kind(&self) -> &'static str {
+        "TwitchSubscriber"
+    }
+
+    fn label(&self) -> &'static str {
+        "Twitch Subscriber"
+    }
+
+    fn inputs(&self) -> Vec<InputPort> {
+        vec![]
+    }
+
+    fn outputs(&self) -> Vec<OutputPort> {
+        vec![OutputPort {
+            id: OutputPortID {
+                parent: self.id.clone(),
+                name: "raid".to_string(),
+            },
+            properties: vec![
+                "from_broadcaster_user_id".to_string(),
+                "from_broadcaster_user_login".to_string(),
+                "from_broadcaster_user_name".to_string(),
+                "to_broadcaster_user_id".to_string(),
+                "to_broadcaster_user_login".to_string(),
+                "to_broadcaster_user_name".to_string(),
+                "viewers".to_string(),
+            ],
+        }]
+    }
+
+    fn spawn(&self) -> ProcessInit {
+        Box::pin(SubscriberProcess::initializer(self.clone()))
+    }
+}
+
+pub struct SubscriberProcess {
+    client: HelixClient<'static, reqwest::Client>,
+    token: UserToken,
+    channel_id: UserId,
+    socket: WSConnection,
+    session_id: Option<String>,
+    reconnect_url: Option<url::Url>,
+}
+
+impl SubscriberProcess {
+    async fn initializer(component: SubscriberComponent) -> Result<Box<dyn Process + Send>> {
+        let client: HelixClient<reqwest::Client> = HelixClient::default();
+        let token = UserToken::from_token(&client, component.oauth.clone())
+            .await
+            .into_diagnostic()?;
+
+        let channel_id = Self::get_user_id_for(&client, &token, &component.channel.clone()).await?;
+        let socket = Self::connect().await?;
+
+        Ok(Box::new(Self {
+            client,
+            token,
+            channel_id,
+            socket,
+            session_id: None,
+            reconnect_url: None,
+        }))
+    }
+
+    pub async fn get_user_id_for<'a>(
+        client: &HelixClient<'a, reqwest::Client>,
+        token: &UserToken,
+        name: &UserName,
+    ) -> Result<UserId> {
+        client
             .get_user_from_login(name, token)
             .await
             .into_diagnostic()?
@@ -88,7 +138,7 @@ impl Subscriber {
             .map(|user| user.id)
     }
 
-    async fn connect(&mut self) -> Result<WSConnection> {
+    async fn connect() -> Result<WSConnection> {
         let config = tokio_tungstenite::tungstenite::protocol::WebSocketConfig::default();
 
         let (socket, _) = tokio_tungstenite::connect_async_with_config(
@@ -102,7 +152,7 @@ impl Subscriber {
         Ok(socket)
     }
 
-    async fn process_message(&mut self, msg: String) -> Result<()> {
+    async fn process_message(&mut self, msg: String) -> Result<Vec<Packet>> {
         use EventsubWebsocketData::*;
         match Event::parse_websocket(msg.as_str()).into_diagnostic()? {
             Welcome {
@@ -113,9 +163,6 @@ impl Subscriber {
                 payload: ReconnectPayload { session },
                 ..
             } => {
-                self.channel_id = self.get_user_id_for(&self.channel.clone()).await?;
-                self.bot_id = self.get_user_id_for(&self.bot.clone()).await?;
-
                 self.session_id = Some(session.id.to_string());
                 if let Some(url) = session.reconnect_url {
                     self.reconnect_url = Some(url.parse().into_diagnostic()?);
@@ -129,28 +176,27 @@ impl Subscriber {
                     twitch_api::eventsub::Transport::websocket(session.id.to_string()),
                 );
 
-                let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
                 self.client
-                    .req_post(req, body, token)
+                    .req_post(req, body, &self.token)
                     .await
                     .into_diagnostic()?;
             }
             Notification { metadata, payload } => {
-                self.process_notification(&metadata, &payload).await?;
+                return self.process_notification(&metadata, &payload).await;
             }
             Revocation { .. } => (),
             Keepalive { .. } => (),
             _ => (),
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     async fn process_notification<'a>(
         &mut self,
         _metadata: &NotificationMetadata<'a>,
         payload: &Event,
-    ) -> Result<()> {
+    ) -> Result<Vec<Packet>> {
         match payload {
             Event::ChannelRaidV1(Payload {
                 message: TwitchMessage::Notification(msg),
@@ -183,80 +229,38 @@ impl Subscriber {
                     Property::Text(msg.to_broadcaster_user_name.to_string()),
                 );
                 message.insert("viewers".to_string(), Property::I64(msg.viewers));
-                self.conn
-                    .send(Packet {
-                        port: "raid".to_string(),
-                        message,
-                    })
-                    .await?;
-                Ok(())
+                Ok(vec![Packet {
+                    port: "raid".to_string(),
+                    message,
+                }])
             }
-            _ => Ok(()),
+            _ => Ok(vec![]),
         }
     }
 }
 
 #[async_trait]
-impl Component for Subscriber {
-    fn kind(&self) -> &'static str {
-        "TwitchSubscriber"
-    }
-
-    fn label(&self) -> String {
-        "Twitch Subscriber".to_string()
-    }
-
-    fn connection(&mut self) -> &mut Connection {
-        &mut self.conn
-    }
-
-    async fn run(&mut self) -> Result<()> {
-        self.default_run().await
-    }
-
-    fn inputs(&self) -> Vec<InputPort> {
-        vec![]
-    }
-
-    fn outputs(&self) -> Vec<OutputPort> {
-        vec![OutputPort {
-            id: OutputPortID {
-                parent: self.id.clone(),
-                name: "raid".to_string(),
-            },
-            properties: vec![
-                "from_broadcaster_user_id".to_string(),
-                "from_broadcaster_user_login".to_string(),
-                "from_broadcaster_user_name".to_string(),
-                "to_broadcaster_user_id".to_string(),
-                "to_broadcaster_user_login".to_string(),
-                "to_broadcaster_user_name".to_string(),
-                "viewers".to_string(),
-            ],
-        }]
+impl Process for SubscriberProcess {
+    async fn run(&mut self, conn: &mut Connection) -> Result<()> {
+        self.passive_run(conn).await
     }
 }
 
 #[async_trait]
-impl PassiveComponent for Subscriber {
-    async fn setup(&mut self) -> Result<()> {
-        let token = UserToken::from_token(&self.client, self.oauth.clone())
-            .await
-            .into_diagnostic()?;
-        self.token = Some(token);
-        self.socket = Some(self.connect().await?);
-        Ok(())
-    }
-
+impl PassiveProcess for SubscriberProcess {
     async fn handler(&mut self) -> Result<Vec<Packet>> {
         use tokio_tungstenite::tungstenite::*;
 
-        let socket = self.socket.as_mut().ok_or(MrDamianError::InvalidSocket)?;
-        match socket.next().await {
+        match self.socket.next().await {
             Some(Ok(Message::Text(msg))) => {
-                if let Err(err) = self.process_message(msg).await {
-                    eprintln!("message process error: {}", err);
-                }
+                return match self.process_message(msg).await {
+                    Ok(ps) => Ok(ps),
+                    Err(err) => {
+                        // catch and we will continue to process for next message.
+                        eprintln!("message process error: {}", err);
+                        Ok(vec![])
+                    }
+                };
             }
             Some(err @ Err(Error::ConnectionClosed)) => {
                 // but if twitch says you should close connection, we want to along with that.
@@ -265,7 +269,7 @@ impl PassiveComponent for Subscriber {
             }
             None
             | Some(Err(Error::Protocol(error::ProtocolError::ResetWithoutClosingHandshake))) => {
-                self.socket = Some(self.connect().await?);
+                self.socket = Self::connect().await?;
             }
             _ => (),
         }

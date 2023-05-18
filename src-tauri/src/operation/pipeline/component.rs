@@ -12,35 +12,35 @@ pub struct Constructor {
     pub gen: Box<Generator>,
 }
 
-#[async_trait]
 pub trait Component {
+    fn id(&self) -> String;
     fn kind(&self) -> &'static str;
-    fn label(&self) -> String;
+    fn label(&self) -> &'static str;
     fn inputs(&self) -> Vec<InputPort>;
     fn outputs(&self) -> Vec<OutputPort>;
 
-    fn connection(&mut self) -> &mut Connection;
-    async fn run(&mut self) -> Result<()>;
+    fn spawn(&self) -> ProcessInit;
 }
 
 #[async_trait]
-pub trait DefaultComponent: Component {
-    async fn setup(&mut self) -> Result<()> {
-        Ok(())
-    }
+pub trait Process {
+    async fn run(&mut self, conn: &mut Connection) -> Result<()>;
+}
 
-    async fn default_run(&mut self) -> Result<()> {
-        // TODO: implement better error handling.
-        self.setup().await?;
+pub type ProcessInit =
+    std::pin::Pin<Box<dyn core::future::Future<Output = Result<Box<dyn Process + Send>>> + Send>>;
 
+#[async_trait]
+pub trait DefaultProcess: Process {
+    async fn default_run(&mut self, conn: &mut Connection) -> Result<()> {
         loop {
-            let Some(packet) = self.connection().receive().await else {
+            let Some(packet) = conn.receive().await else {
                 return Ok(());
             };
             let packets = self.handler(packet).await?;
 
             for packet in packets {
-                self.connection().send(packet).await?;
+                conn.send(packet).await?;
             }
         }
     }
@@ -49,18 +49,12 @@ pub trait DefaultComponent: Component {
 }
 
 #[async_trait]
-pub trait PassiveComponent: Component {
-    async fn setup(&mut self) -> Result<()> {
-        Ok(())
-    }
-    async fn default_run(&mut self) -> Result<()> {
-        // TODO: implement better error handling.
-        self.setup().await?;
-
+pub trait PassiveProcess: Process {
+    async fn passive_run(&mut self, connection: &mut Connection) -> Result<()> {
         loop {
             let packets = self.handler().await?;
             for packet in packets {
-                self.connection().send(packet).await?;
+                connection.send(packet).await?;
             }
         }
     }

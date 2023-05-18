@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use twitch_api::{
     helix::HelixClient,
     helix::{self, chat::AnnouncementColor},
@@ -5,38 +7,32 @@ use twitch_api::{
     types::{UserId, UserName},
 };
 
-use async_trait::async_trait;
 use miette::{miette, IntoDiagnostic, Result};
 
 use crate::{
     model::error::MrDamianError,
     model::{InputPort, InputPortID, OutputPort},
-    operation::pipeline::{Component, Connection, Constructor, DefaultComponent, Packet, Property},
+    operation::pipeline::{
+        Component, Connection, Constructor, DefaultProcess, Packet, Process, ProcessInit, Property,
+    },
 };
 
-pub struct Publisher {
+#[derive(Debug, Clone)]
+pub struct PublisherComponent {
     id: String,
-    client: HelixClient<'static, reqwest::Client>,
     oauth: AccessToken,
-    token: Option<UserToken>,
-
     channel: UserName,
-    channel_id: UserId,
-
     bot: UserName,
-    bot_id: UserId,
-
-    conn: Connection,
 }
 
-impl Publisher {
+impl PublisherComponent {
     pub fn constructor() -> Constructor {
         Constructor {
             kind: "TwitchPublisher",
             label: "Twitch Publisher",
             gen: Box::new(
                 |id: &str, config: &crate::config::Config| -> Box<dyn Component + Send> {
-                    Box::new(Publisher::new(
+                    Box::new(PublisherComponent::new(
                         id,
                         &config.bot,
                         &config.channel,
@@ -48,69 +44,26 @@ impl Publisher {
     }
 
     pub fn new(id: &str, bot: &str, channel: &str, oauth: &str) -> Self {
-        let client: HelixClient<reqwest::Client> = HelixClient::default();
-
         Self {
             id: id.to_string(),
-            client,
             oauth: oauth.into(),
-            token: None,
             channel: channel.into(),
-            channel_id: "".into(),
             bot: bot.into(),
-            bot_id: "".into(),
-            conn: Connection::new(),
         }
-    }
-
-    async fn get_user_id_for(&mut self, name: &UserName) -> Result<UserId> {
-        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
-        self.client
-            .get_user_from_login(name, token)
-            .await
-            .into_diagnostic()?
-            .ok_or_else(|| miette!("No user found for channel {channel}."))
-            .map(|user| user.id)
-    }
-
-    async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
-        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
-        let req = helix::chat::SendAShoutoutRequest::new(
-            self.channel_id.clone(),
-            to_broadcaster.clone(),
-            self.bot_id.clone(),
-        );
-
-        self.client
-            .req_post(req, Default::default(), token)
-            .await
-            .into_diagnostic()?;
-        Ok(())
-    }
-
-    async fn send_notification(&mut self, message: &str) -> Result<()> {
-        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
-        self.client
-            .send_chat_announcement(
-                self.channel_id.as_str(),
-                self.bot_id.as_str(),
-                message,
-                AnnouncementColor::Primary,
-                token,
-            )
-            .await
-            .into_diagnostic()?;
-        Ok(())
     }
 }
 
-#[async_trait]
-impl Component for Publisher {
+impl Component for PublisherComponent {
+    fn id(&self) -> String {
+        self.id.clone()
+    }
+
     fn kind(&self) -> &'static str {
         "TwitchPublisher"
     }
-    fn label(&self) -> String {
-        "Twitch Publisher".to_string()
+
+    fn label(&self) -> &'static str {
+        "Twitch Publisher"
     }
 
     fn inputs(&self) -> Vec<InputPort> {
@@ -131,32 +84,89 @@ impl Component for Publisher {
         vec![]
     }
 
-    fn connection(&mut self) -> &mut Connection {
-        &mut self.conn
+    fn spawn(&self) -> ProcessInit {
+        Box::pin(PublisherProcess::initializer(self.clone()))
+    }
+}
+
+pub struct PublisherProcess {
+    client: HelixClient<'static, reqwest::Client>,
+    token: UserToken,
+    channel_id: UserId,
+    bot_id: UserId,
+}
+
+impl PublisherProcess {
+    pub async fn initializer(component: PublisherComponent) -> Result<Box<dyn Process + Send>> {
+        let client: HelixClient<reqwest::Client> = HelixClient::default();
+
+        let token = UserToken::from_token(&client, component.oauth.clone())
+            .await
+            .into_diagnostic()?;
+
+        let channel_id = Self::get_user_id_for(&client, &token, &component.channel.clone()).await?;
+        let bot_id = Self::get_user_id_for(&client, &token, &component.bot.clone()).await?;
+
+        Ok(Box::new(Self {
+            client,
+            token,
+            channel_id,
+            bot_id,
+        }))
     }
 
-    async fn run(&mut self) -> Result<()> {
-        self.default_run().await
+    async fn get_user_id_for<'a>(
+        client: &HelixClient<'a, reqwest::Client>,
+        token: &UserToken,
+        name: &UserName,
+    ) -> Result<UserId> {
+        client
+            .get_user_from_login(name, token)
+            .await
+            .into_diagnostic()?
+            .ok_or_else(|| miette!("No user found for channel {channel}."))
+            .map(|user| user.id)
+    }
+
+    async fn send_shoutout(&mut self, to_broadcaster: &UserId) -> Result<()> {
+        let req = helix::chat::SendAShoutoutRequest::new(
+            self.channel_id.clone(),
+            to_broadcaster.clone(),
+            self.bot_id.clone(),
+        );
+
+        self.client
+            .req_post(req, Default::default(), &self.token)
+            .await
+            .into_diagnostic()?;
+        Ok(())
+    }
+
+    async fn send_notification(&mut self, message: &str) -> Result<()> {
+        self.client
+            .send_chat_announcement(
+                self.channel_id.as_str(),
+                self.bot_id.as_str(),
+                message,
+                AnnouncementColor::Primary,
+                &self.token,
+            )
+            .await
+            .into_diagnostic()?;
+        Ok(())
     }
 }
 
 #[async_trait]
-impl DefaultComponent for Publisher {
-    async fn setup(&mut self) -> Result<()> {
-        let token = UserToken::from_token(&self.client, self.oauth.clone())
-            .await
-            .into_diagnostic()?;
-        self.token = Some(token);
-
-        self.channel_id = self.get_user_id_for(&self.channel.clone()).await?;
-        self.bot_id = self.get_user_id_for(&self.bot.clone()).await?;
-
-        Ok(())
+impl Process for PublisherProcess {
+    async fn run(&mut self, conn: &mut Connection) -> Result<()> {
+        self.default_run(conn).await
     }
+}
 
+#[async_trait]
+impl DefaultProcess for PublisherProcess {
     async fn handler(&mut self, packet: Packet) -> Result<Vec<Packet>> {
-        let token = self.token.as_ref().ok_or(MrDamianError::InvalidToken)?;
-
         if packet.port != "message" {
             // drop all packets that are not from the message port.
             return Ok(vec![]);
@@ -178,14 +188,14 @@ impl DefaultComponent for Publisher {
 
         let user = self
             .client
-            .get_user_from_id(&fid, token)
+            .get_user_from_id(&fid, &self.token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No user found for channel {}.", flogin))?;
 
         let channel = self
             .client
-            .get_channel_from_id(&fid, token)
+            .get_channel_from_id(&fid, &self.token)
             .await
             .into_diagnostic()?
             .ok_or_else(|| miette!("No channel info found for the user {}.", flogin))?;

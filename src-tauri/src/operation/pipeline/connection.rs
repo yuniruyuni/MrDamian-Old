@@ -3,8 +3,6 @@ use miette::Result;
 use super::packet::Packet;
 use super::port::{InputPort, OutputPort, OutputPorts};
 
-use super::Component;
-
 #[derive(Debug)]
 pub struct Connection {
     pub input: InputPort,
@@ -27,14 +25,7 @@ impl Connection {
         self.outputs.send(packet).await
     }
 
-    pub fn connect(
-        src: &mut dyn Component,
-        dst: &mut dyn Component,
-        src_port: &str,
-        dst_port: &str,
-    ) {
-        let src = src.connection();
-        let dst = dst.connection();
+    pub fn connect(src: &mut Connection, dst: &mut Connection, src_port: &str, dst_port: &str) {
         src.attach(src_port, dst.accquire(dst_port))
     }
 

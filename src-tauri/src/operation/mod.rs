@@ -28,21 +28,22 @@ impl Factory {
     }
 
     pub fn create_pipeline(&self, pipeline: &Pipeline) -> Handles {
-        let mut components = HashMap::new();
+        let mut processes = HashMap::new();
         for mcomp in &pipeline.components {
             if let Ok(ocomp) = self.create_component(&mcomp.id, mcomp.kind.0.as_str()) {
-                components.insert(mcomp.id.clone(), ocomp);
+                let conn = Connection::new();
+                let proc = ocomp.spawn();
+                processes.insert(mcomp.id.clone(), (conn, proc));
             }
         }
 
         for conn in &pipeline.connections {
             let res =
-                components.get_many_mut([conn.source.parent.as_str(), conn.target.parent.as_str()]);
+                processes.get_many_mut([conn.source.parent.as_str(), conn.target.parent.as_str()]);
             if let Some([source, target]) = res {
-                // TODO: eprintln!("Connecting {} to {}", conn.source, conn.target);
                 Connection::connect(
-                    source.as_mut(),
-                    target.as_mut(),
+                    &mut source.0,
+                    &mut target.0,
                     conn.source.name.as_str(),
                     conn.target.name.as_str(),
                 );
@@ -50,12 +51,10 @@ impl Factory {
         }
 
         let mut handles = Handles::default();
-        for (_, mut component) in components {
-            eprintln!("Starting {}", component.kind());
+        for (_, mut proc) in processes {
             let handle = tauri::async_runtime::spawn(async move {
-                let res = component.run().await;
-                eprintln!("Component {} exited with {:?}", component.kind(), res);
-                res
+                let mut inst = proc.1.await?;
+                inst.run(&mut proc.0).await
             });
             handles.push(handle);
         }
@@ -76,7 +75,7 @@ impl Factory {
 
 pub fn factory() -> Factory {
     Factory::new(vec![
-        twitch::Publisher::constructor(),
-        twitch::Subscriber::constructor(),
+        twitch::PublisherComponent::constructor(),
+        twitch::SubscriberComponent::constructor(),
     ])
 }
