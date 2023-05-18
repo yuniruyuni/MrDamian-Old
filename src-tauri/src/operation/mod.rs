@@ -19,7 +19,7 @@ impl Factory {
         Self(map)
     }
 
-    fn create_component(&self, kind: &str, id: &str) -> Result<Box<dyn Component + Send>> {
+    pub fn create_component(&self, kind: &str, id: &str) -> Result<Box<dyn Component + Send>> {
         if let Some(c) = self.0.get(kind) {
             Ok((c.gen)(id, &crate::config::Config::load_envs()?))
         } else {

@@ -108,6 +108,16 @@ pub struct InputPort {
     pub properties: Vec<String>,
 }
 
+impl From<crate::model::InputPort> for InputPort {
+    fn from(v: crate::model::InputPort) -> InputPort {
+        InputPort {
+            parent: v.id.parent,
+            name: v.id.name,
+            properties: v.properties,
+        }
+    }
+}
+
 #[allow(clippy::from_over_into)]
 impl Into<crate::model::InputPort> for InputPort {
     fn into(self) -> crate::model::InputPort {
@@ -126,6 +136,16 @@ pub struct OutputPort {
     pub parent: String,
     pub name: String,
     pub properties: Vec<String>,
+}
+
+impl From<crate::model::OutputPort> for OutputPort {
+    fn from(v: crate::model::OutputPort) -> OutputPort {
+        OutputPort {
+            parent: v.id.parent,
+            name: v.id.name,
+            properties: v.properties,
+        }
+    }
 }
 
 #[allow(clippy::from_over_into)]
