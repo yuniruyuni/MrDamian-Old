@@ -19,7 +19,12 @@ use repository::Repositories;
 fn gen_bindings() {
     use presentation::command::*;
     tauri_specta::ts::export(
-        specta::collect_types![candidates, create_component, editor, update_editor],
+        specta::collect_types![
+            component::candidates,
+            component::create_component,
+            editor::editor,
+            editor::update_editor,
+        ],
         "../src/bindings.ts",
     )
     .unwrap();
@@ -35,10 +40,10 @@ fn main() -> Result<()> {
 
     Builder::default()
         .invoke_handler(generate_handler![
-            candidates,
-            create_component,
-            editor,
-            update_editor
+            component::candidates,
+            component::create_component,
+            editor::editor,
+            editor::update_editor,
         ])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)

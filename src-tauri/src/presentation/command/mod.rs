@@ -1,5 +1,2 @@
-mod component;
-mod pipeline;
-
-pub use component::*;
-pub use pipeline::*;
+pub mod component;
+pub mod editor;
