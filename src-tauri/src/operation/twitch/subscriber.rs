@@ -37,11 +37,7 @@ impl SubscriberComponent {
             label: "Twitch Subscriber",
             gen: Box::new(
                 |id: &str, config: &crate::config::Config| -> Box<dyn Component + Send> {
-                    Box::new(SubscriberComponent::new(
-                        id,
-                        &config.channel,
-                        &config.token,
-                    ))
+                    Box::new(SubscriberComponent::new(id, &config.channel, &config.token))
                 },
             ),
         }

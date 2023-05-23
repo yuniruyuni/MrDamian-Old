@@ -60,7 +60,6 @@ const OutputPortsCSS = css`
 const OutputPort: React.FC<{output: Output, onAssignEdit?: (o: Output) => void}> = ({output, onAssignEdit}) => (
   <p onClick={() => {
     onAssignEdit && onAssignEdit(output);
-    console.log(onAssignEdit);
   }}>
     {output.name}
     <Handle className={PortCSS} type="source" position={Position.Right} id={output.name} />

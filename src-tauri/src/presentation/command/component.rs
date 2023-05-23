@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use crate::model::{PIPELINE_UPDATED};
+use crate::model::PIPELINE_UPDATED;
 use crate::operation::factory; // TODO: encapsulate by repository layer.
-use crate::presentation::protocol::{Node, NodeData, Candidate, Position};
+use crate::presentation::protocol::{Candidate, Node, NodeData, Position};
 use crate::repository::Repositories;
 
 #[tauri::command]
@@ -40,7 +40,7 @@ pub fn create_component(
         id,
         kind,
         position,
-        data: NodeData{
+        data: NodeData {
             label: comp.label().to_string(),
             inputs: comp.inputs().into_iter().map(|i| i.into()).collect(),
             outputs: comp.outputs().into_iter().map(|o| o.into()).collect(),

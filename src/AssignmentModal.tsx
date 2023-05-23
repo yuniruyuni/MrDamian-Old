@@ -7,18 +7,18 @@ import { Edge, InputPort, OutputPort } from './bindings';
 
 type Prop = {
   open: boolean;
-  input?: InputPort;
-  output?: OutputPort;
   edge?: Edge;
+  source?: OutputPort;
+  target?: InputPort;
 
-  onAssign: (assignment: Record<string, string>) => void;
+  onAssign: (id: string, assignment: Record<string, string>) => void;
   onDiscard: () => void;
 };
 
-export const AssignmentModal: React.FC<Prop> = ({open, input, output, edge, onAssign, onDiscard}) => {
+export const AssignmentModal: React.FC<Prop> = ({open, edge, source, target, onAssign, onDiscard}) => {
   const [assignment, setAssignment] = useState<Record<string, string>>(edge?.data.assignment ?? {});
   const onClose = onDiscard;
-  const onApply = useCallback(() => onAssign(assignment), [onAssign, assignment]);
+  const onApply = useCallback(() => onAssign(edge?.id ?? '', assignment), [edge, onAssign, assignment]);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -33,7 +33,7 @@ export const AssignmentModal: React.FC<Prop> = ({open, input, output, edge, onAs
           </Table.Header>
 
           <Table.Body>
-            {output?.propertyNames.map((prop: string) => (
+            {target?.propertyNames.map((prop: string) => (
               <Table.Row>
                 <Table.Cell>
                   {prop}
@@ -42,7 +42,7 @@ export const AssignmentModal: React.FC<Prop> = ({open, input, output, edge, onAs
                   <Select
                     value={edge?.data.assignment[prop]}
                     options={
-                        input?.
+                        source?.
                             propertyNames.
                             map((prop: string) => ({ key: prop, value: prop, text: prop }))
                         ?? []

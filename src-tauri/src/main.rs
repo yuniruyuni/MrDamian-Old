@@ -24,6 +24,9 @@ fn gen_bindings() {
             component::create_component,
             editor::editor,
             editor::update_editor,
+            edge::add_edge,
+            edge::remove_edge,
+            edge::set_assignment,
         ],
         "../src/bindings.ts",
     )
@@ -44,6 +47,9 @@ fn main() -> Result<()> {
             component::create_component,
             editor::editor,
             editor::update_editor,
+            edge::add_edge,
+            edge::remove_edge,
+            edge::set_assignment,
         ])
         .system_tray(system_tray)
         .on_system_tray_event(tray::on_system_tray_event)

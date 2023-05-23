@@ -26,9 +26,13 @@ function useListen<T>(event: EventName, handler: EventCallback<T>, deps?: Depend
   }, deps);
 }
 
-export function usePipeline(
-  onAssignEdit: (source: Node, target: Node, sourcePort: InputPort, targetPort: OutputPort) => void,
-) {
+export type Args = {
+  onAssignEdit: (edge: Edge, source: OutputPort, target: InputPort) => void;
+  onAddEdge: (connection: Connection) => void;
+  onRemoveEdge: (connection: Connection) => void;
+};
+
+export function usePipeline({onAssignEdit, onAddEdge, onRemoveEdge}: Args) {
   const edgeUpdateSuccessful = useRef(true);
 
   const nodeTypes = useMemo(() => ({
@@ -37,6 +41,16 @@ export function usePipeline(
   }), []);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+    const rnodes: Node[] = useMemo(() => nodes
+      .map((node) => ({ ...node, type: node.type??'' })), [nodes]);
+    const redges: Edge[] = useMemo(() => edges.map((edge) => ({
+      ...edge,
+      label: edge.label?.toString()??'',
+      sourceHandle: edge.sourceHandle??'',
+      targetHandle: edge.targetHandle??'',
+      data: edge.data??{},
+    })), [edges]);
 
   const onEdgeUpdateStart = useCallback(() => {
     edgeUpdateSuccessful.current = false;
@@ -48,27 +62,23 @@ export function usePipeline(
   const onEdgeUpdateEnd = useCallback((_event: MouseEvent | TouchEvent, target: RFEdge, _handle: HandleType) => {
     if (!edgeUpdateSuccessful.current) {
       setEdges((edges) => edges.filter((e) => e.id !== target.id));
+      onRemoveEdge({
+        source: target.source,
+        target: target.target,
+        sourceHandle: target.sourceHandle ?? '',
+        targetHandle: target.targetHandle ?? '',
+      });
     }
     edgeUpdateSuccessful.current = true;
   }, []);
 
   const onConnect = useCallback(
-    (connection: Connection) => setEdges((edges) => addEdge(connection, edges)),
+    (connection: Connection) => onAddEdge(connection),
     [setEdges],
   );
 
   const onApply = useCallback(() => {
     (async () => {
-      const rnodes: Node[] = nodes
-        .map((node) => ({ ...node, type: node.type??'' }));
-      const redges: Edge[] = edges.map((edge) => ({
-        ...edge,
-        label: edge.label?.toString()??'',
-        sourceHandle: edge.sourceHandle??'',
-        targetHandle: edge.targetHandle??'',
-        data: edge.data??{},
-      }));
-
       await updateEditor({ nodes: rnodes, edges: redges });
     })()
   }, [nodes, edges]);
@@ -79,25 +89,21 @@ export function usePipeline(
   });
 
   const onEdgeClick = useCallback((_e: React.MouseEvent, edge: RFEdge) => {
-      const rnodes: Node[] = nodes
-        .map((node) => ({ ...node, type: node.type??'' }));
+      const redge = redges.find((e: Edge) => e.id === edge.id);
+
       const source = rnodes.find((node: Node) => node.id === edge.source);
       const target = rnodes.find((node: Node) => node.id === edge.target);
       const sourcePort = source?.data.outputs.find((i: OutputPort) => i.name === edge.sourceHandle);
       const targetPort = target?.data.inputs.find((o: InputPort) => o.name === edge.targetHandle);
 
-      if( source === undefined ) return;
-      if( target === undefined ) return;
-      if( sourcePort === undefined ) return;
-      if( targetPort === undefined ) return;
+      if( !redge ) return;
+      if( !source ) return;
+      if( !target ) return;
+      if( !sourcePort ) return;
+      if( !targetPort ) return;
 
-      onAssignEdit(
-        source,
-        target,
-        sourcePort,
-        targetPort,
-      );
-    }, [nodes]);
+      onAssignEdit(redge, sourcePort, targetPort);
+    }, [rnodes, redges, onAssignEdit]);
 
   useEffect(() => {
     (async () => {

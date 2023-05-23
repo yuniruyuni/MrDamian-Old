@@ -4,6 +4,7 @@ import ReactFlow, {
   Controls,
   Background,
   Edge as RFEdge,
+  Connection,
 } from 'reactflow';
 
 import 'reactflow/dist/style.css';
@@ -12,7 +13,7 @@ import { Button, Container, Modal, Table, Select } from 'semantic-ui-react'
 
 import { usePipeline } from "./pipeline";
 
-import { Node, Edge, InputPort, OutputPort, Position, createComponent } from './bindings';
+import { Node, Edge, InputPort, OutputPort, Position, createComponent, setAssignment, addEdge, removeEdge } from './bindings';
 import { ContextMenu } from "./ContextMenu";
 import { AssignmentModal } from "./AssignmentModal";
 
@@ -24,21 +25,37 @@ export type ContextMenuState = {
 
 type AssignModalState = {
   open: boolean;
-  input?: InputPort;
-  output?: OutputPort;
+  source?: OutputPort;
+  target?: InputPort;
   edge?: Edge;
 };
 
 function App() {
   const [ modal, setModal ] = useState<AssignModalState>({open: false});
-  const { onApply, ...pipeline } = usePipeline(
-    (source: Node, target: Node, sourcePort: OutputPort, targetPort: InputPort) => {
-      setModal({open: true, input: sourcePort, output: targetPort});
+  const { onApply, ...pipeline } = usePipeline({
+    onAssignEdit: (edge: Edge, source: OutputPort, target: InputPort) => {
+      setModal({open: true, edge, source, target});
     },
-  );
+    onAddEdge: (connection: Connection) => {
+      addEdge(
+        connection.source ?? '',
+        connection.target ?? '',
+        connection.sourceHandle ?? '',
+        connection.targetHandle ?? '',
+      );
+    },
+    onRemoveEdge: (connection: Connection) => {
+      removeEdge(
+        connection.source ?? '',
+        connection.target ?? '',
+        connection.sourceHandle ?? '',
+        connection.targetHandle ?? '',
+      );
+    },
+  });
 
-  const onAssign = useCallback((assignment: Record<string, string>) => {
-    // TODO: call remote method to save assignment to editor state.
+  const onAssign = useCallback((id: string, assignment: Record<string, string>) => {
+    setAssignment(id, assignment);
     setModal({open: false});
   }, []);
 

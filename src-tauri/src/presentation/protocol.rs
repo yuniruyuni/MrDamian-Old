@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use ulid::Ulid;
 
 #[derive(Type, Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Candidate {
@@ -11,6 +12,51 @@ pub struct Candidate {
 pub struct Editor {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+}
+
+impl Editor {
+    pub fn add_edge(
+        &mut self,
+        source: String,
+        target: String,
+        source_handle: String,
+        target_handle: String,
+    ) {
+        self.edges.push(Edge {
+            id: Ulid::new().to_string(),
+            label: None,
+            source,
+            target,
+            source_handle,
+            target_handle,
+            data: EdgeData::default(),
+        });
+    }
+
+    pub fn remove_edge(
+        &mut self,
+        source: String,
+        target: String,
+        source_handle: String,
+        target_handle: String,
+    ) {
+        self.edges
+            .iter()
+            .position(|e| {
+                e.source == source
+                    && e.target == target
+                    && e.source_handle == source_handle
+                    && e.target_handle == target_handle
+            })
+            .map(|i| self.edges.remove(i));
+    }
+
+    pub fn set_assignment(&mut self, id: String, assignment: Assignment) {
+        let Some(mut edge) = self.edges.iter_mut().find(|e| e.id == id) else {
+            return;
+        };
+        edge.data.assignment = assignment;
+    }
 }
 
 #[allow(clippy::from_over_into)]

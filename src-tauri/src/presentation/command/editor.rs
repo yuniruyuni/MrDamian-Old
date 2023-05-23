@@ -18,5 +18,5 @@ pub fn update_editor(app: AppHandle, repos: State<'_, Mutex<Repositories>>, upda
     let mut repos = repos.lock().expect("Failed to lock pipeline repository");
     repos.editor.set(updated.clone());
     repos.pipeline.set(updated.into());
-    app.emit_all(PIPELINE_UPDATED, "update_pipeline").unwrap();
+    app.emit_all(PIPELINE_UPDATED, "update_editor").unwrap();
 }
