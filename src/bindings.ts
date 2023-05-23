@@ -24,12 +24,12 @@ export function updateEditor(updated: Editor) {
     return invoke<null>("update_editor", { updated })
 }
 
-export type InputPort = { parent: string; name: string; properties: string[] }
 export type OutputPort = { parent: string; name: string; properties: string[] }
 export type Candidate = { kind: string; label: string }
-export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string; data: EdgeData }
-export type Editor = { nodes: Node[]; edges: Edge[] }
-export type Node = { id: string; type: string; position: Position; data: NodeData }
-export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
 export type Position = { x: number; y: number }
+export type Edge = { id: string; label: string | null; source: string; target: string; sourceHandle: string; targetHandle: string; data: EdgeData }
+export type InputPort = { parent: string; name: string; properties: string[] }
 export type EdgeData = { assign: { [key: string]: string } }
+export type Editor = { nodes: Node[]; edges: Edge[] }
+export type NodeData = { label: string; inputs: InputPort[]; outputs: OutputPort[] }
+export type Node = { id: string; type: string; position: Position; data: NodeData }

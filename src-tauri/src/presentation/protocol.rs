@@ -13,12 +13,6 @@ pub struct Editor {
     pub edges: Vec<Edge>,
 }
 
-impl Editor {
-    pub fn next_id(&self) -> String {
-        ulid::Ulid::new().to_string()
-    }
-}
-
 #[allow(clippy::from_over_into)]
 impl Into<crate::model::Pipeline> for Editor {
     fn into(self) -> crate::model::Pipeline {

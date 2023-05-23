@@ -1,10 +1,10 @@
-use crate::presentation::protocol::{Editor, Node, Position, NodeData};
+use crate::presentation::protocol::{Editor, Node};
 
 pub trait Repository {
     fn get(&self) -> Editor;
     fn set(&mut self, updated: Editor);
 
-    fn create_component(&mut self, comp: &dyn crate::operation::pipeline::Component, component: String, position: Position);
+    fn insert_node(&mut self, node: Node);
 }
 
 pub struct Impl {
@@ -28,17 +28,7 @@ impl Repository for Impl {
         self.editor = updated;
     }
 
-    fn create_component(&mut self, comp: &dyn crate::operation::pipeline::Component, kind: String, position: Position) {
-        let id = self.editor.next_id();
-        self.editor.nodes.push(Node {
-            id,
-            kind,
-            position,
-            data: NodeData{
-                label: comp.label().to_string(),
-                inputs: comp.inputs().into_iter().map(|i| i.into()).collect(),
-                outputs: comp.outputs().into_iter().map(|o| o.into()).collect(),
-            },
-        });
+    fn insert_node(&mut self, node: Node) {
+        self.editor.nodes.push(node);
     }
 }

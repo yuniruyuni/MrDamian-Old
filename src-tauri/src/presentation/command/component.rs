@@ -3,7 +3,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::model::{PIPELINE_UPDATED};
 use crate::operation::factory; // TODO: encapsulate by repository layer.
-use crate::presentation::protocol::{Candidate, Position};
+use crate::presentation::protocol::{Node, NodeData, Candidate, Position};
 use crate::repository::Repositories;
 
 #[tauri::command]
@@ -30,13 +30,23 @@ pub fn create_component(
 ) {
     let mut repos = repos.lock().expect("Failed to lock pipeline repository");
 
-    let Ok(comp) = factory().create_component(
-        &kind,
-        ulid::Ulid::new().to_string().as_str(),
-    ) else {
+    let id = ulid::Ulid::new().to_string();
+
+    let Ok(comp) = factory().create_component(&kind, id.as_str()) else {
         return;
     };
 
-    repos.editor.create_component(comp.as_ref(), kind, position);
+    let node = Node {
+        id,
+        kind,
+        position,
+        data: NodeData{
+            label: comp.label().to_string(),
+            inputs: comp.inputs().into_iter().map(|i| i.into()).collect(),
+            outputs: comp.outputs().into_iter().map(|o| o.into()).collect(),
+        },
+    };
+
+    repos.editor.insert_node(node);
     app.emit_all(PIPELINE_UPDATED, "create_component").unwrap();
 }
