@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import 'reactflow/dist/style.css';
 
-import { Button, Modal, Table, Select } from 'semantic-ui-react'
+import { Button, Modal, Table, Select } from 'semantic-ui-react';
 
 import { Edge, InputPort, OutputPort } from './bindings';
 
@@ -15,10 +15,22 @@ type Prop = {
   onDiscard: () => void;
 };
 
-export const AssignmentModal: React.FC<Prop> = ({open, edge, source, target, onAssign, onDiscard}) => {
-  const [assignment, setAssignment] = useState<Record<string, string>>(edge?.data.assignment ?? {});
+export const AssignmentModal: React.FC<Prop> = ({
+  open,
+  edge,
+  source,
+  target,
+  onAssign,
+  onDiscard,
+}) => {
+  const [assignment, setAssignment] = useState<Record<string, string>>(
+    edge?.data.assignment ?? {},
+  );
   const onClose = onDiscard;
-  const onApply = useCallback(() => onAssign(edge?.id ?? '', assignment), [edge, onAssign, assignment]);
+  const onApply = useCallback(
+    () => onAssign(edge?.id ?? '', assignment),
+    [edge, onAssign, assignment],
+  );
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -34,24 +46,23 @@ export const AssignmentModal: React.FC<Prop> = ({open, edge, source, target, onA
 
           <Table.Body>
             {target?.propertyNames.map((prop: string) => (
-              <Table.Row>
-                <Table.Cell>
-                  {prop}
-                </Table.Cell>
+              <Table.Row key={prop}>
+                <Table.Cell>{prop}</Table.Cell>
                 <Table.Cell>
                   <Select
                     value={edge?.data.assignment[prop]}
                     options={
-                        source?.
-                            propertyNames.
-                            map((prop: string) => ({ key: prop, value: prop, text: prop }))
-                        ?? []
+                      source?.propertyNames.map((prop: string) => ({
+                        key: prop,
+                        value: prop,
+                        text: prop,
+                      })) ?? []
                     }
-                    onChange={(_, {value}) => {
+                    onChange={(_, { value }) => {
                       setAssignment({
                         ...assignment,
                         [prop]: value as string,
-                      })
+                      });
                     }}
                   />
                 </Table.Cell>

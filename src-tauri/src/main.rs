@@ -28,7 +28,7 @@ fn gen_bindings() {
             edge::remove_edge,
             edge::set_assignment,
         ],
-        "../src/bindings.ts",
+        "../src/bindings/index.ts",
     )
     .unwrap();
 }
