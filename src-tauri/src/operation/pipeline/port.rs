@@ -6,6 +6,7 @@ use miette::{IntoDiagnostic, Result};
 use super::message::Message;
 use super::packet::Packet;
 use crate::model::error::MrDamianError;
+use crate::model::Assignment;
 
 #[derive(Debug)]
 pub struct InputPort {
@@ -22,10 +23,11 @@ impl InputPort {
         }
     }
 
-    pub fn accquire(&self, dest: &str) -> OutputPort {
+    pub fn accquire(&self, dest: &str, assignment: &Assignment) -> OutputPort {
         OutputPort {
             dest: dest.to_string(),
             sender: self.base_sender.clone(),
+            assignment: assignment.clone(),
         }
     }
 
@@ -38,13 +40,19 @@ impl InputPort {
 pub struct OutputPort {
     pub dest: String,
     pub sender: Sender<Packet>,
+    pub assignment: Assignment,
 }
 
 impl OutputPort {
     pub async fn send(&self, message: Message) -> Result<()> {
+        let mut assigned = Message::default();
+        for (arg, prop) in self.assignment.iter() {
+            assigned.insert(arg.clone(), message[prop].clone());
+        }
+
         let packet = Packet {
             port: self.dest.clone(),
-            message,
+            message: assigned,
         };
         self.sender.send(packet).await.into_diagnostic()
     }

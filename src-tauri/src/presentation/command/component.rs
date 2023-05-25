@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use crate::model::PIPELINE_UPDATED;
+use crate::model::{Kind, PIPELINE_UPDATED};
 use crate::operation::factory; // TODO: encapsulate by repository layer.
 use crate::presentation::protocol::{Candidate, Node, NodeData, Position};
 use crate::repository::Repositories;
@@ -32,7 +32,7 @@ pub fn create_component(
 
     let id = ulid::Ulid::new().to_string();
 
-    let Ok(comp) = factory().create_component(&kind, id.as_str()) else {
+    let Ok(comp) = factory().create_component(&Kind(kind.clone()), id.as_str()) else {
         return;
     };
 

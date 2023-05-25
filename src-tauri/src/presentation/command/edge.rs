@@ -21,7 +21,7 @@ pub fn add_edge(
         .editor
         .add_edge(source, target, source_handle, target_handle);
 
-    app.emit_all(PIPELINE_UPDATED, "ad_edge").unwrap();
+    app.emit_all(PIPELINE_UPDATED, "add_edge").unwrap();
 }
 
 #[tauri::command]

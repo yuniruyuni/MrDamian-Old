@@ -19,8 +19,8 @@ impl Factory {
         Self(map)
     }
 
-    pub fn create_component(&self, kind: &str, id: &str) -> Result<Box<dyn Component + Send>> {
-        if let Some(c) = self.0.get(kind) {
+    pub fn create_component(&self, kind: &Kind, id: &str) -> Result<Box<dyn Component + Send>> {
+        if let Some(c) = self.0.get(kind.0.as_str()) {
             Ok((c.gen)(id, &crate::config::Config::load_envs()?))
         } else {
             Err(MrDamianError::InvalidComponent).into_diagnostic()
@@ -30,7 +30,7 @@ impl Factory {
     pub fn create_pipeline(&self, pipeline: &Pipeline) -> Handles {
         let mut processes = HashMap::new();
         for mcomp in &pipeline.components {
-            if let Ok(ocomp) = self.create_component(&mcomp.id, mcomp.kind.0.as_str()) {
+            if let Ok(ocomp) = self.create_component(&mcomp.kind, mcomp.id.as_str()) {
                 let conn = Connection::new();
                 let proc = ocomp.spawn();
                 processes.insert(mcomp.id.clone(), (conn, proc));
@@ -46,6 +46,7 @@ impl Factory {
                     &mut target.0,
                     conn.source.name.as_str(),
                     conn.target.name.as_str(),
+                    &conn.assignment,
                 );
             }
         }
