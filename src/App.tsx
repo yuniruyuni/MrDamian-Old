@@ -103,9 +103,9 @@ function App() {
         Apply
       </Button>
       <ContextMenu
+        {...menu}
         onMenuClose={onMenuClose}
         onMenuClick={onMenuClick}
-        {...menu}
       />
       <AssignmentModal
         {...modal}
