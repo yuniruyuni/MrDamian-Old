@@ -1,0 +1,94 @@
+run:
+  skip-dirs:
+    - bin
+
+linters:
+  enable:
+    - bodyclose
+    - gocritic
+    - revive
+    - stylecheck
+    - rowserrcheck
+    - gosec
+    - unconvert
+    - dupl
+    - goconst
+    - gocyclo
+    - gocognit
+    - asciicheck
+    - gofumpt
+    - goimports
+    - misspell
+    - lll
+    - unparam
+    - nakedret
+    - gochecknoinits
+    - godox
+    - funlen
+    - whitespace
+    - goprintffuncname
+    - gomnd
+    - goerr113
+    - gomodguard
+    - godot
+    - nestif
+    - exportloopref
+    - nolintlint
+  disable:
+    - maligned
+    - prealloc
+    - gochecknoglobals
+    - wsl
+    - testpackage
+    - golint
+
+linter-settings:
+  govet:
+    check-shadowing: true
+
+  golint:
+    min-confidence: 0
+
+  goimports:
+    - local-prefixes: github.com/yuniruyuni
+
+  gocyclo:
+    - min-complexity: 10
+
+  maligned:
+    suggest-new: true
+
+  dupl:
+    threshold: 100
+
+  lll:
+    line-length: 120
+
+  nakedret:
+    max-func-lines: 0
+
+  misspel:
+    locale: US
+    ignore-words:
+      - yuniruyuni
+      - mrdamian
+
+issues:
+  exclude-rules:
+    - source: "^//go:generate "
+      linters:
+        - lll
+
+    - text: "shadow: declaration of \"err\""
+      linters:
+        - govet
+
+    - text: "Line contains TODO/BUG/FIXME:"
+      linters:
+        - godox
+
+    - linters:
+        - dupl
+        - goconst
+        - funlen
+      path: _test\.go

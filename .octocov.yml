@@ -1,0 +1,23 @@
+coverage:
+  paths:
+    - coverage.txt
+
+codeToTestRatio:
+  code:
+    - '**/*.go'
+    - '!**/*_test.go'
+
+  test:
+    - '**/*_test.go'
+
+textExecutionTime:
+  if: true
+comment:
+  if: is_pull_request
+report:
+  if: is_default_branch
+  datastores:
+    - artifact://yuniruyuni/mrdamian
+diff:
+  datastores:
+    - artifact://yuniruyuni/mrdamian
