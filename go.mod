@@ -5,10 +5,13 @@ go 1.18
 require (
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.53.1
+	github.com/morikuni/failure v1.1.2
 	github.com/nicklaw5/helix/v2 v2.22.1
 	github.com/quasilyte/go-consistent v0.0.0-20220429160651-4e46040fbc82
 	github.com/reviewdog/reviewdog v0.14.1
 	github.com/wailsapp/wails/v2 v2.5.1
+	golang.org/x/net v0.10.0
+	gotest.tools/v3 v3.4.0
 )
 
 require (
@@ -260,7 +263,6 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/image v0.5.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect

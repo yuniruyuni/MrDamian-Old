@@ -21,6 +21,7 @@ func main() {
 		"dev":      dev,
 		"lint":     lint,
 		"fix":      fix,
+		"test":     test,
 	}
 
 	if len(os.Args) != ArgsLen {
@@ -100,4 +101,8 @@ func lint() error {
 
 func fix() error {
 	return run("golangci-lint", "run", "--timeout=1m", "--fix", "./...")
+}
+
+func test() error {
+	return run("go", "test", "./...")
 }
